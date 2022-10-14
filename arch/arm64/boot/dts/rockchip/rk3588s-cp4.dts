@@ -541,6 +541,10 @@
 		     &i2s0_sdo0>;
 };
 
+&i2s5_8ch {
+	status = "okay";
+};
+
 &iep {
 	status = "okay";
 };
@@ -1224,11 +1228,6 @@
 	};
 };
 
-&sdmmc {
-	status = "okay";
-	vmmc-supply = <&vcc_3v3_sd_s0>;
-};
-
 &spi0 {
 	pinctrl-names = "default";
 	status = "okay";
@@ -1271,10 +1270,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&can1m1_pins>;
 	status = "disabled";
-};
-
-&i2s5_8ch {
-	status = "okay";
 };
 
 &pinctrl {
