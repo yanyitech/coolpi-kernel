@@ -720,7 +720,7 @@
 	sd-uhs-sdr104;
 	vmmc-supply = <&vcc_3v3_sd_s0>;
 	vqmmc-supply = <&vccio_sd_s0>;
-	status = "disabled";
+	status = "okay";
 };
 
 &tsadc {
@@ -816,6 +816,10 @@
 	status = "okay";
 };
 
+&vp0 {
+	assigned-clocks = <&cru DCLK_VOP0>;
+	assigned-clock-parents = <&hdptxphy_hdmi_clk0>;
+};
 /* vp0 & vp1 splice for 8K output */
 &vp0 {
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER0 | 1 << ROCKCHIP_VOP2_ESMART0)>;
