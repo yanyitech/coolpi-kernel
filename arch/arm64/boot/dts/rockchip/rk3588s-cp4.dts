@@ -415,9 +415,9 @@
 		compatible = "wlan-platdata";
 		wifi_chip_type = "ap6256";
 		pinctrl-names = "default";
-		pinctrl-0 = <&wifi_host_wake_irq>, <&wifi_poweren_gpio>;
+		pinctrl-0 = <&wifi_host_wake_irq>;
 		WIFI,host_wake_irq = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
-		WIFI,poweren_gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
+//		WIFI,poweren_gpio = <&gpio1 RK_PD3 GPIO_ACTIVE_HIGH>;
 		status = "okay";
 	};
 };
@@ -704,8 +704,8 @@
 	mmc-pwrseq = <&sdio_pwrseq>;
 	non-removable;
 	pinctrl-names = "default";
-	pinctrl-0 = <&sdiom1_pins>;
-	sd-uhs-sdr104;
+	pinctrl-0 = <&sdiom1_pins>,<&wifi_poweren_gpio>;
+	//sd-uhs-sdr104;
 	status = "okay";
 };
 
@@ -809,6 +809,7 @@
 };
 
 &vop {
+	assigned-clock-rates = <800000000>;
 	status = "okay";
 };
 
