@@ -1,0 +1,5 @@
+bootdir=/
+kernel=vmlinuz
+initrd=initrd.img
+dtb=rk3588s-cp4.dtb
+
