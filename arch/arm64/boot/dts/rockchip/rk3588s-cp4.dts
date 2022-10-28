@@ -817,10 +817,16 @@
 	status = "okay";
 };
 
-&vp0 {
+/*&vp0 {
 	assigned-clocks = <&cru DCLK_VOP0>;
 	assigned-clock-parents = <&hdptxphy_hdmi_clk0>;
+};*/
+
+&display_subsystem {
+	memory-region = <&drm_logo>;
+	memory-region-names = "drm-logo";
 };
+
 /* vp0 & vp1 splice for 8K output */
 &vp0 {
 	rockchip,plane-mask = <(1 << ROCKCHIP_VOP2_CLUSTER0 | 1 << ROCKCHIP_VOP2_ESMART0)>;
@@ -874,6 +880,10 @@
 };
 
 &hdmi0_in_vp0 {
+	status = "okay";
+};
+
+&hdmi0_in_vp1 {
 	status = "okay";
 };
 
@@ -1186,7 +1196,7 @@
 &pwm13 {
 	status = "disabled";
 	pinctrl-names = "active";
-	pinctrl-0 = <&pwm13m1_pins>;
+	pinctrl-0 = <&pwm13m2_pins>;
 };
 
 &pwm15 {
