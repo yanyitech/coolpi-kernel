@@ -742,9 +742,9 @@ rkisp_start_streaming(struct vb2_queue *queue, unsigned int count)
 		/* update sensor info when first streaming */
 		ret = rkisp_update_sensor_info(dev);
 		if (ret < 0) {
-			v4l2_err(v4l2_dev,
-				 "update sensor info failed %d\n",
-				 ret);
+			//v4l2_err(v4l2_dev,
+			//	 "update sensor info failed %d\n",
+			//	 ret);
 			goto buffer_done;
 		}
 	}

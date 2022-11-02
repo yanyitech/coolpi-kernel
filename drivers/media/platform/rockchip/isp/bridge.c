@@ -260,7 +260,7 @@ static int bridge_start_stream(struct v4l2_subdev *sd)
 		/* Always update sensor info in case media topology changed */
 		ret = rkisp_update_sensor_info(dev->ispdev);
 		if (ret < 0) {
-			v4l2_err(sd, "update sensor info failed %d\n", ret);
+			//v4l2_err(sd, "update sensor info failed %d\n", ret);
 			goto free_buf;
 		}
 	}

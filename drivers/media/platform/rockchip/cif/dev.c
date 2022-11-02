@@ -1350,8 +1350,8 @@ static int subdev_asyn_register_itf(struct rkcif_device *dev)
 
 	ret = rkcif_update_sensor_info(&dev->stream[0]);
 	if (ret) {
-		v4l2_err(&dev->v4l2_dev,
-			 "There is not terminal subdev, not synchronized with ISP\n");
+		//v4l2_err(&dev->v4l2_dev,
+		//	 "There is not terminal subdev, not synchronized with ISP\n");
 		return 0;
 	}
 	sditf = dev->sditf[0];

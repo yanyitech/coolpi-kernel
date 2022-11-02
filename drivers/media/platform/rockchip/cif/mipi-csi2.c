@@ -113,7 +113,7 @@ static void csi2_update_sensor_info(struct csi2_dev *csi2)
 
 	ret = v4l2_subdev_call(sensor->sd, pad, get_mbus_config, 0, &mbus);
 	if (ret) {
-		v4l2_err(&csi2->sd, "update sensor info failed!\n");
+		//v4l2_err(&csi2->sd, "update sensor info failed!\n");
 		return;
 	}
 

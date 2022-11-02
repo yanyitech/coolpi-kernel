@@ -527,8 +527,8 @@ static struct v4l2_subdev *get_remote_sensor(struct rkcif_stream *stream, u16 *i
 
 	local = &stream->vnode.vdev.entity.pads[0];
 	if (!local) {
-		v4l2_err(&stream->cifdev->v4l2_dev,
-			 "%s: video pad[0] is null\n", __func__);
+		//v4l2_err(&stream->cifdev->v4l2_dev,
+		//	 "%s: video pad[0] is null\n", __func__);
 		return NULL;
 	}
 
@@ -3977,17 +3977,17 @@ int rkcif_update_sensor_info(struct rkcif_stream *stream)
 
 	sensor_sd = get_remote_sensor(stream, NULL);
 	if (!sensor_sd) {
-		v4l2_err(&stream->cifdev->v4l2_dev,
-			 "%s: stream[%d] get remote sensor_sd failed!\n",
-			 __func__, stream->id);
+		//v4l2_err(&stream->cifdev->v4l2_dev,
+		//	 "%s: stream[%d] get remote sensor_sd failed!\n",
+		//	 __func__, stream->id);
 		return -ENODEV;
 	}
 
 	sensor = sd_to_sensor(stream->cifdev, sensor_sd);
 	if (!sensor) {
-		v4l2_err(&stream->cifdev->v4l2_dev,
-			 "%s: stream[%d] get remote sensor failed!\n",
-			 __func__, stream->id);
+		//v4l2_err(&stream->cifdev->v4l2_dev,
+		//	 "%s: stream[%d] get remote sensor failed!\n",
+		//	 __func__, stream->id);
 		return -ENODEV;
 	}
 	ret = v4l2_subdev_call(sensor->sd, pad, get_mbus_config,
@@ -4027,9 +4027,9 @@ int rkcif_update_sensor_info(struct rkcif_stream *stream)
 			terminal_sensor->dsi_input_en = 0;
 		}
 	} else {
-		v4l2_err(&stream->cifdev->v4l2_dev,
-			 "%s: stream[%d] get remote terminal sensor failed!\n",
-			 __func__, stream->id);
+		//v4l2_err(&stream->cifdev->v4l2_dev,
+		//	 "%s: stream[%d] get remote terminal sensor failed!\n",
+		//	 __func__, stream->id);
 		return -ENODEV;
 	}
 
@@ -4541,9 +4541,9 @@ int rkcif_do_start_stream(struct rkcif_stream *stream, unsigned int mode)
 	if (dev->active_sensor) {
 		ret = rkcif_update_sensor_info(stream);
 		if (ret < 0) {
-			v4l2_err(v4l2_dev,
-				 "update sensor info failed %d\n",
-				 ret);
+			//v4l2_err(v4l2_dev,
+			//	 "update sensor info failed %d\n",
+			//	 ret);
 			goto out;
 		}
 	}
@@ -4789,8 +4789,8 @@ int rkcif_set_fmt(struct rkcif_stream *stream,
 					   &dev->channels[stream->id]);
 		stream->cif_fmt_in = cif_fmt_in;
 	} else {
-		v4l2_err(&stream->cifdev->v4l2_dev,
-			 "terminal subdev does not exist\n");
+		//v4l2_err(&stream->cifdev->v4l2_dev,
+		//	 "terminal subdev does not exist\n");
 		return -EINVAL;
 	}
 
@@ -5017,9 +5017,9 @@ static int rkcif_fh_open(struct file *filp)
 	/* Make sure active sensor is valid before .set_fmt() */
 	ret = rkcif_update_sensor_info(stream);
 	if (ret < 0) {
-		v4l2_err(vdev,
-			 "update sensor info failed %d\n",
-			 ret);
+		//v4l2_err(vdev,
+		//	 "update sensor info failed %d\n",
+		//	 ret);
 
 		return ret;
 	}
@@ -5390,12 +5390,12 @@ void rkcif_set_fps(struct rkcif_stream *stream, struct rkcif_fps *fps)
 
 	if (!stream->cifdev->terminal_sensor.sd) {
 		ret = rkcif_update_sensor_info(stream);
-		if (ret) {
-			v4l2_err(&stream->cifdev->v4l2_dev,
-				 "%s update sensor info fail\n",
-				 __func__);
-			return;
-		}
+		//if (ret) {
+		//	v4l2_err(&stream->cifdev->v4l2_dev,
+		//		 "%s update sensor info fail\n",
+		//		 __func__);
+		//	return;
+		//}
 
 	}
 	if (!stream->cifdev->terminal_sensor.sd)
