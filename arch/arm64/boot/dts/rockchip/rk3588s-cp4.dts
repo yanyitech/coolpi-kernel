@@ -817,14 +817,20 @@
 	status = "okay";
 };
 
-/*&vp0 {
+&vp0 {
 	assigned-clocks = <&cru DCLK_VOP0>;
 	assigned-clock-parents = <&hdptxphy_hdmi_clk0>;
-};*/
+};
 
 &display_subsystem {
+	clocks = <&hdptxphy_hdmi_clk0>;
+	clock-names = "hdmi0_phy_pll";
 	memory-region = <&drm_logo>;
 	memory-region-names = "drm-logo";
+};
+
+&hdptxphy_hdmi_clk0 {
+	status = "okay";
 };
 
 /* vp0 & vp1 splice for 8K output */

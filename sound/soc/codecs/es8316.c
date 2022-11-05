@@ -47,12 +47,12 @@ static const struct reg_default es8316_reg_defaults[] = {
 	{0x00, 0x03}, {0x01, 0x03}, {0x02, 0x00}, {0x03, 0x20},
 	{0x04, 0x11}, {0x05, 0x00}, {0x06, 0x11}, {0x07, 0x00},
 	{0x08, 0x00}, {0x09, 0x01}, {0x0a, 0x00}, {0x0b, 0x00},
-	{0x0c, 0xf8}, {0x0d, 0x3f}, {0x0e, 0x00}, {0x0f, 0x00},
+	{0x0c, 0xf8}, {0x0d, 0x00}, {0x0e, 0x00}, {0x0f, 0x00},
 	{0x10, 0x01}, {0x11, 0xfc}, {0x12, 0x28}, {0x13, 0x00},
 	{0x14, 0x00}, {0x15, 0x33}, {0x16, 0x00}, {0x17, 0x00},
 	{0x18, 0x88}, {0x19, 0x06}, {0x1a, 0x22}, {0x1b, 0x03},
 	{0x1c, 0x0f}, {0x1d, 0x00}, {0x1e, 0x80}, {0x1f, 0x80},
-	{0x20, 0x00}, {0x21, 0x00}, {0x22, 0xc0}, {0x23, 0x00},
+	{0x20, 0x00}, {0x21, 0x00}, {0x22, 0x30}, {0x23, 0x00},
 	{0x24, 0x01}, {0x25, 0x08}, {0x26, 0x10}, {0x27, 0xc0},
 	{0x28, 0x00}, {0x29, 0x1c}, {0x2a, 0x00}, {0x2b, 0xb0},
 	{0x2c, 0x32}, {0x2d, 0x03}, {0x2e, 0x00}, {0x2f, 0x11},
@@ -705,7 +705,7 @@ static int es8316_pcm_startup(struct snd_pcm_substream *substream,
 		msleep(50);
 	} else {
 		snd_soc_component_update_bits(component,
-				    ES8316_ADC_PDN_LINSEL_REG22, 0xC0, 0x20);
+				    ES8316_ADC_PDN_LINSEL_REG22, 0x30, 0x30);
 		snd_soc_component_update_bits(component, ES8316_CLKMGR_CLKSW_REG01,
 				    ES8316_CLKMGR_ADC_MCLK_MASK |
 				    ES8316_CLKMGR_ADC_ANALOG_MASK,
@@ -740,7 +740,7 @@ static void es8316_pcm_shutdown(struct snd_pcm_substream *substream,
 				    ES8316_CLKMGR_DAC_ANALOG_MASK,
 				    ES8316_CLKMGR_DAC_ANALOG_DIS);
 	} else {
-		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0xc0);
+		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0x30);
 		snd_soc_component_update_bits (component, ES8316_CLKMGR_CLKSW_REG01,
 				    ES8316_CLKMGR_ADC_MCLK_MASK |
 				    ES8316_CLKMGR_ADC_ANALOG_MASK,
@@ -845,7 +845,7 @@ static int es8316_set_bias_level(struct snd_soc_component *component,
 		snd_soc_component_write(component, ES8316_HPMIX_SWITCH_REG14, 0x00);
 		snd_soc_component_write(component, ES8316_HPMIX_PDN_REG15, 0x33);
 		snd_soc_component_write(component, ES8316_HPMIX_VOL_REG16, 0x00);
-		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0xC0);
+		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0x30);
 		if (!es8316->hp_inserted)
 			snd_soc_component_write(component, ES8316_SYS_PDN_REG0D, 0x3F);
 		snd_soc_component_write(component, ES8316_SYS_LP1_REG0E, 0x3F);
@@ -912,7 +912,7 @@ static int es8316_init_regs(struct snd_soc_component *component)
 	snd_soc_component_write(component, ES8316_CAL_HPLIV_REG1E, 0x90);
 	snd_soc_component_write(component, ES8316_CAL_HPRIV_REG1F, 0x90);
 	snd_soc_component_write(component, ES8316_ADC_VOLUME_REG27, 0x00);
-	snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0xc0);
+	snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0x30);
 	snd_soc_component_write(component, ES8316_ADC_D2SEPGA_REG24, 0x00);
 	snd_soc_component_write(component, ES8316_ADC_DMIC_REG25, 0x08);
 	snd_soc_component_write(component, ES8316_DAC_SET2_REG31, 0x20);
@@ -943,11 +943,11 @@ static int es8316_init_regs(struct snd_soc_component *component)
 	snd_soc_component_write(component, ES8316_SYS_PDN_REG0D, 0x00);
 	snd_soc_component_write(component, ES8316_RESET_REG00, 0xC0);
 	msleep(50);
-	snd_soc_component_write(component, ES8316_ADC_PGAGAIN_REG23, 0x60);
+	snd_soc_component_write(component, ES8316_ADC_PGAGAIN_REG23, 0x10);
 	snd_soc_component_write(component, ES8316_ADC_D2SEPGA_REG24, 0x01);
 	/* adc ds mode, HPF enable */
 	snd_soc_component_write(component, ES8316_ADC_DMIC_REG25, 0x08);
-	snd_soc_component_write(component, ES8316_ADC_ALC1_REG29, 0xcd);
+	snd_soc_component_write(component, ES8316_ADC_ALC1_REG29, 0xc9);
 	snd_soc_component_write(component, ES8316_ADC_ALC2_REG2A, 0x08);
 	snd_soc_component_write(component, ES8316_ADC_ALC3_REG2B, 0xa0);
 	snd_soc_component_write(component, ES8316_ADC_ALC4_REG2C, 0x05);
@@ -987,7 +987,7 @@ static int es8316_resume(struct snd_soc_component *component)
 		snd_soc_component_write(component, ES8316_SYS_LP1_REG0E, 0xFF);
 		snd_soc_component_write(component, ES8316_SYS_LP2_REG0F, 0xFF);
 		snd_soc_component_write(component, ES8316_CLKMGR_CLKSW_REG01, 0xF3);
-		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0xc0);
+		snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL_REG22, 0x30);
 	}
 	return 0;
 }
@@ -1092,7 +1092,7 @@ static int es8316_probe(struct snd_soc_component *component)
 			snd_soc_component_write(component, ES8316_SYS_LP2_REG0F, 0xFF);
 			snd_soc_component_write(component, ES8316_CLKMGR_CLKSW_REG01, 0xF3);
 			snd_soc_component_write(component,
-				      ES8316_ADC_PDN_LINSEL_REG22, 0xc0);
+				      ES8316_ADC_PDN_LINSEL_REG22, 0x30);
 		}
 	}
 
