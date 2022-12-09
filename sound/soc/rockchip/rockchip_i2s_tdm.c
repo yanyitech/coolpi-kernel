@@ -27,7 +27,7 @@
 #include <sound/dmaengine_pcm.h>
 
 #include "rockchip_i2s_tdm.h"
-//#include "rockchip_dlp.h"
+#include "rockchip_dlp.h"
 
 #define DRV_NAME "rockchip-i2s-tdm"
 
@@ -85,6 +85,7 @@ struct rk_i2s_tdm_dev {
 	struct regmap *grf;
 	struct snd_dmaengine_dai_dma_data capture_dma_data;
 	struct snd_dmaengine_dai_dma_data playback_dma_data;
+	struct snd_pcm_substream *substreams[SNDRV_PCM_STREAM_LAST + 1];
 	struct reset_control *tx_reset;
 	struct reset_control *rx_reset;
 	const struct rk_i2s_soc_data *soc_data;
@@ -438,9 +439,32 @@ static void rockchip_i2s_tdm_tx_fifo_padding(struct rk_i2s_tdm_dev *i2s_tdm, boo
 		regmap_write(i2s_tdm->regmap, I2S_TXDR, 0x0);
 }
 
+static void rockchip_i2s_tdm_fifo_xrun_detect(struct rk_i2s_tdm_dev *i2s_tdm,
+					      int stream, bool en)
+{
+	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		/* clear irq status which was asserted before TXUIE enabled */
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_TXUIC, I2S_INTCR_TXUIC);
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_TXUIE_MASK,
+				   I2S_INTCR_TXUIE(en));
+	} else {
+		/* clear irq status which was asserted before RXOIE enabled */
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_RXOIC, I2S_INTCR_RXOIC);
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_RXOIE_MASK,
+				   I2S_INTCR_RXOIE(en));
+	}
+}
+
 static void rockchip_i2s_tdm_dma_ctrl(struct rk_i2s_tdm_dev *i2s_tdm,
 				      int stream, bool en)
 {
+	if (!en)
+		rockchip_i2s_tdm_fifo_xrun_detect(i2s_tdm, stream, 0);
+
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (i2s_tdm->quirks & QUIRK_HDMI_PATH)
 			rockchip_i2s_tdm_tx_fifo_padding(i2s_tdm, en);
@@ -463,6 +487,9 @@ static void rockchip_i2s_tdm_dma_ctrl(struct rk_i2s_tdm_dev *i2s_tdm,
 				   I2S_DMACR_RDE_MASK,
 				   I2S_DMACR_RDE(en));
 	}
+
+	if (en)
+		rockchip_i2s_tdm_fifo_xrun_detect(i2s_tdm, stream, 1);
 }
 
 static void rockchip_i2s_tdm_xfer_start(struct rk_i2s_tdm_dev *i2s_tdm,
@@ -564,6 +591,17 @@ static void rockchip_i2s_tdm_trcm_resume(struct snd_pcm_substream *substream,
 
 static void rockchip_i2s_tdm_start(struct rk_i2s_tdm_dev *i2s_tdm, int stream)
 {
+	/*
+	 * On HDMI-PATH-ALWAYS-ON situation, we almost keep XFER always on,
+	 * so, for new data start, suggested to STOP-CLEAR-START to make sure
+	 * data aligned.
+	 */
+	if ((i2s_tdm->quirks & QUIRK_HDMI_PATH) &&
+	    (i2s_tdm->quirks & QUIRK_ALWAYS_ON) &&
+	    (stream == SNDRV_PCM_STREAM_PLAYBACK)) {
+		rockchip_i2s_tdm_xfer_stop(i2s_tdm, stream, true);
+	}
+
 	rockchip_i2s_tdm_dma_ctrl(i2s_tdm, stream, 1);
 
 	if (i2s_tdm->clk_trcm)
@@ -1100,6 +1138,17 @@ static int rockchip_i2s_tdm_params(struct snd_pcm_substream *substream,
 				   fmt);
 	}
 
+	/*
+	 * Bring back CLK ASAP after cfg changed to make SINK devices active
+	 * on HDMI-PATH-ALWAYS-ON situation, this workaround for some TVs no
+	 * sound issue. at the moment, it's 8K@60Hz display situation.
+	 */
+	if ((i2s_tdm->quirks & QUIRK_HDMI_PATH) &&
+	    (i2s_tdm->quirks & QUIRK_ALWAYS_ON) &&
+	    (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)) {
+		rockchip_i2s_tdm_xfer_start(i2s_tdm, SNDRV_PCM_STREAM_PLAYBACK);
+	}
+
 	return 0;
 }
 
@@ -1466,21 +1515,25 @@ static int rockchip_i2s_tdm_startup(struct snd_pcm_substream *substream,
 {
 	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
 
-	/*
-	 * Suggested to stop audio source before HDMI configure to make
-	 * sure audio data integrity on HDMI-PATH-ALWAYS-ON situation.
-	 */
-	if ((i2s_tdm->quirks & QUIRK_HDMI_PATH) &&
-	    (i2s_tdm->quirks & QUIRK_ALWAYS_ON) &&
-	    (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)) {
-		rockchip_i2s_tdm_xfer_stop(i2s_tdm, substream->stream, true);
-	}
+	if (i2s_tdm->substreams[substream->stream])
+		return -EBUSY;
+
+	i2s_tdm->substreams[substream->stream] = substream;
 
 	return 0;
 }
 
+static void rockchip_i2s_tdm_shutdown(struct snd_pcm_substream *substream,
+				      struct snd_soc_dai *dai)
+{
+	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
+
+	i2s_tdm->substreams[substream->stream] = NULL;
+}
+
 static const struct snd_soc_dai_ops rockchip_i2s_tdm_dai_ops = {
 	.startup = rockchip_i2s_tdm_startup,
+	.shutdown = rockchip_i2s_tdm_shutdown,
 	.hw_params = rockchip_i2s_tdm_hw_params,
 	.set_sysclk = rockchip_i2s_tdm_set_sysclk,
 	.set_fmt = rockchip_i2s_tdm_set_fmt,
@@ -1542,6 +1595,7 @@ static bool rockchip_i2s_tdm_volatile_reg(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case I2S_TXFIFOLR:
+	case I2S_INTCR:
 	case I2S_INTSR:
 	case I2S_CLR:
 	case I2S_TXDR:
@@ -1910,7 +1964,7 @@ static int rockchip_i2s_tdm_rx_path_prepare(struct rk_i2s_tdm_dev *i2s_tdm,
 	return rockchip_i2s_tdm_path_prepare(i2s_tdm, np, 1);
 }
 
-/*static int rockchip_i2s_tdm_get_fifo_count(struct device *dev, int stream)
+static int rockchip_i2s_tdm_get_fifo_count(struct device *dev, int stream)
 {
 	struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(dev);
 	int val = 0;
@@ -1926,11 +1980,39 @@ static int rockchip_i2s_tdm_rx_path_prepare(struct rk_i2s_tdm_dev *i2s_tdm,
 	      ((val & I2S_FIFOLR_TFL0_MASK) >> I2S_FIFOLR_TFL0_SHIFT);
 
 	return val;
-}*/
+}
 
-/*static const struct snd_dlp_config dconfig = {
+static const struct snd_dlp_config dconfig = {
 	.get_fifo_count = rockchip_i2s_tdm_get_fifo_count,
-};*/
+};
+
+static irqreturn_t rockchip_i2s_tdm_isr(int irq, void *devid)
+{
+	struct rk_i2s_tdm_dev *i2s_tdm = (struct rk_i2s_tdm_dev *)devid;
+	struct snd_pcm_substream *substream;
+	u32 val;
+
+	regmap_read(i2s_tdm->regmap, I2S_INTSR, &val);
+	if (val & I2S_INTSR_TXUI_ACT) {
+		dev_warn_ratelimited(i2s_tdm->dev, "TX FIFO Underrun\n");
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_TXUIC, I2S_INTCR_TXUIC);
+		substream = i2s_tdm->substreams[SNDRV_PCM_STREAM_PLAYBACK];
+		if (substream)
+			snd_pcm_stop_xrun(substream);
+	}
+
+	if (val & I2S_INTSR_RXOI_ACT) {
+		dev_warn_ratelimited(i2s_tdm->dev, "RX FIFO Overrun\n");
+		regmap_update_bits(i2s_tdm->regmap, I2S_INTCR,
+				   I2S_INTCR_RXOIC, I2S_INTCR_RXOIC);
+		substream = i2s_tdm->substreams[SNDRV_PCM_STREAM_CAPTURE];
+		if (substream)
+			snd_pcm_stop_xrun(substream);
+	}
+
+	return IRQ_HANDLED;
+}
 
 static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 {
@@ -1943,7 +2025,7 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 #ifdef HAVE_SYNC_RESET
 	bool sync;
 #endif
-	int ret, val, i;
+	int ret, val, i, irq;
 
 	ret = rockchip_i2s_tdm_dai_prepare(pdev, &soc_dai);
 	if (ret)
@@ -2076,6 +2158,16 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 	if (IS_ERR(i2s_tdm->regmap))
 		return PTR_ERR(i2s_tdm->regmap);
 
+	irq = platform_get_irq_optional(pdev, 0);
+	if (irq > 0) {
+		ret = devm_request_irq(&pdev->dev, irq, rockchip_i2s_tdm_isr,
+				       IRQF_SHARED, node->name, i2s_tdm);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to request irq %u\n", irq);
+			return ret;
+		}
+	}
+
 	i2s_tdm->playback_dma_data.addr = res->start + I2S_TXDR;
 	i2s_tdm->playback_dma_data.addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	i2s_tdm->playback_dma_data.maxburst = MAXBURST_PER_FIFO;
@@ -2154,9 +2246,9 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "rockchip,no-dmaengine"))
 		return ret;
 
-	/*if (of_property_read_bool(node, "rockchip,digital-loopback"))
+	if (of_property_read_bool(node, "rockchip,digital-loopback"))
 		ret = devm_snd_dmaengine_dlp_register(&pdev->dev, &dconfig);
-	else*/
+	else
 		ret = devm_snd_dmaengine_pcm_register(&pdev->dev, NULL, 0);
 
 	if (ret) {
@@ -2188,6 +2280,16 @@ static int rockchip_i2s_tdm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(i2s_tdm->hclk);
 
 	return 0;
+}
+
+static void rockchip_i2s_tdm_platform_shutdown(struct platform_device *pdev)
+{
+	struct rk_i2s_tdm_dev *i2s_tdm = dev_get_drvdata(&pdev->dev);
+
+	pm_runtime_get_sync(i2s_tdm->dev);
+	rockchip_i2s_tdm_stop(i2s_tdm, SNDRV_PCM_STREAM_PLAYBACK);
+	rockchip_i2s_tdm_stop(i2s_tdm, SNDRV_PCM_STREAM_CAPTURE);
+	pm_runtime_put(i2s_tdm->dev);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -2225,6 +2327,7 @@ static const struct dev_pm_ops rockchip_i2s_tdm_pm_ops = {
 static struct platform_driver rockchip_i2s_tdm_driver = {
 	.probe = rockchip_i2s_tdm_probe,
 	.remove = rockchip_i2s_tdm_remove,
+	.shutdown = rockchip_i2s_tdm_platform_shutdown,
 	.driver = {
 		.name = DRV_NAME,
 		.of_match_table = of_match_ptr(rockchip_i2s_tdm_match),

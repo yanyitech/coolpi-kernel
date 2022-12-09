@@ -53,6 +53,36 @@ static bool iommu_reserve_map;
 
 static struct drm_driver rockchip_drm_driver;
 
+static unsigned int drm_debug;
+module_param_named(debug, drm_debug, int, 0600);
+
+static inline bool rockchip_drm_debug_enabled(enum rockchip_drm_debug_category category)
+{
+	return unlikely(drm_debug & category);
+}
+
+__printf(3, 4)
+void rockchip_drm_dbg(const struct device *dev, enum rockchip_drm_debug_category category,
+		      const char *format, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	if (!rockchip_drm_debug_enabled(category))
+		return;
+
+	va_start(args, format);
+	vaf.fmt = format;
+	vaf.va = &args;
+
+	if (dev)
+		dev_printk(KERN_DEBUG, dev, "%pV", &vaf);
+	else
+		printk(KERN_DEBUG "%pV", &vaf);
+
+	va_end(args);
+}
+
 /**
  * rockchip_drm_wait_vact_end
  * @crtc: CRTC to enable line flag
@@ -206,6 +236,22 @@ EXPORT_SYMBOL(rockchip_drm_of_find_possible_crtcs);
 
 static DEFINE_MUTEX(rockchip_drm_sub_dev_lock);
 static LIST_HEAD(rockchip_drm_sub_dev_list);
+
+void rockchip_connector_update_vfp_for_vrr(struct drm_crtc *crtc, struct drm_display_mode *mode,
+					   int vfp)
+{
+	struct rockchip_drm_sub_dev *sub_dev;
+
+	mutex_lock(&rockchip_drm_sub_dev_lock);
+	list_for_each_entry(sub_dev, &rockchip_drm_sub_dev_list, list) {
+		if (sub_dev->connector->state->crtc == crtc) {
+			if (sub_dev->update_vfp_for_vrr)
+				sub_dev->update_vfp_for_vrr(sub_dev->connector, mode, vfp);
+		}
+	}
+	mutex_unlock(&rockchip_drm_sub_dev_lock);
+}
+EXPORT_SYMBOL(rockchip_connector_update_vfp_for_vrr);
 
 void rockchip_drm_register_sub_dev(struct rockchip_drm_sub_dev *sub_dev)
 {
@@ -604,7 +650,7 @@ void get_max_frl_rate(int max_frl_rate, u8 *max_lanes, u8 *max_rate_per_lane)
 
 static
 void parse_edid_forum_vsdb(struct rockchip_drm_dsc_cap *dsc_cap,
-			   u8 *max_frl_rate_per_lane, u8 *max_lanes,
+			   u8 *max_frl_rate_per_lane, u8 *max_lanes, u8 *add_func,
 			   const u8 *hf_vsdb)
 {
 	u8 max_frl_rate;
@@ -618,6 +664,8 @@ void parse_edid_forum_vsdb(struct rockchip_drm_dsc_cap *dsc_cap,
 	max_frl_rate = (hf_vsdb[7] & EDID_MAX_FRL_RATE_MASK) >> 4;
 	get_max_frl_rate(max_frl_rate, max_lanes,
 			 max_frl_rate_per_lane);
+
+	*add_func = hf_vsdb[8];
 
 	if (cea_db_payload_len(hf_vsdb) < 13)
 		return;
@@ -828,13 +876,13 @@ void parse_next_hdr_block(struct next_hdr_sink_data *sink_data,
 }
 
 int rockchip_drm_parse_cea_ext(struct rockchip_drm_dsc_cap *dsc_cap,
-			       u8 *max_frl_rate_per_lane, u8 *max_lanes,
+			       u8 *max_frl_rate_per_lane, u8 *max_lanes, u8 *add_func,
 			       const struct edid *edid)
 {
 	const u8 *edid_ext;
 	int i, start, end;
 
-	if (!dsc_cap || !max_frl_rate_per_lane || !max_lanes || !edid)
+	if (!dsc_cap || !max_frl_rate_per_lane || !max_lanes || !edid || !add_func)
 		return -EINVAL;
 
 	edid_ext = find_cea_extension(edid);
@@ -849,7 +897,7 @@ int rockchip_drm_parse_cea_ext(struct rockchip_drm_dsc_cap *dsc_cap,
 
 		if (cea_db_is_hdmi_forum_vsdb(db))
 			parse_edid_forum_vsdb(dsc_cap, max_frl_rate_per_lane,
-					      max_lanes, db);
+					      max_lanes, add_func, db);
 	}
 
 	return 0;
@@ -1959,7 +2007,11 @@ static void __exit rockchip_drm_fini(void)
 				    num_rockchip_sub_drivers);
 }
 
+#ifdef CONFIG_VIDEO_REVERSE_IMAGE
+fs_initcall(rockchip_drm_init);
+#else
 module_init(rockchip_drm_init);
+#endif
 module_exit(rockchip_drm_fini);
 
 MODULE_AUTHOR("Mark Yao <mark.yao@rock-chips.com>");

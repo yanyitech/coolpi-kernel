@@ -67,6 +67,10 @@ bool rkisp_irq_dbg;
 module_param_named(irq_dbg, rkisp_irq_dbg, bool, 0644);
 MODULE_PARM_DESC(irq_dbg, "rkisp interrupt runtime");
 
+static bool rkisp_rdbk_auto;
+module_param_named(rdbk_auto, rkisp_rdbk_auto, bool, 0644);
+MODULE_PARM_DESC(irq_dbg, "rkisp and vicap auto readback mode");
+
 static bool rkisp_clk_dbg;
 module_param_named(clk_dbg, rkisp_clk_dbg, bool, 0644);
 MODULE_PARM_DESC(clk_dbg, "rkisp clk set by user");
@@ -884,6 +888,7 @@ static int rkisp_plat_probe(struct platform_device *pdev)
 		goto err_unreg_v4l2_dev;
 	}
 
+	pm_runtime_enable(dev);
 	/* create & register platefom subdev (from of_node) */
 	ret = rkisp_register_platform_subdevs(isp_dev);
 	if (ret < 0)
@@ -897,8 +902,6 @@ static int rkisp_plat_probe(struct platform_device *pdev)
 	mutex_lock(&rkisp_dev_mutex);
 	list_add_tail(&isp_dev->list, &rkisp_device_list);
 	mutex_unlock(&rkisp_dev_mutex);
-
-	pm_runtime_enable(dev);
 	return 0;
 
 err_unreg_media_dev:
@@ -958,6 +961,7 @@ static int __maybe_unused rkisp_runtime_resume(struct device *dev)
 
 	isp_dev->cap_dev.wait_line = rkisp_wait_line;
 	isp_dev->cap_dev.wrap_line = rkisp_wrap_line;
+	isp_dev->is_rdbk_auto = rkisp_rdbk_auto;
 	mutex_lock(&isp_dev->hw_dev->dev_lock);
 	ret = pm_runtime_get_sync(isp_dev->hw_dev->dev);
 	mutex_unlock(&isp_dev->hw_dev->dev_lock);

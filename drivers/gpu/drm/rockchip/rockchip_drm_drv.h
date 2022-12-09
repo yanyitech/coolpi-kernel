@@ -64,6 +64,14 @@ struct iommu_domain;
 #define RK_IF_PROP_COLOR_DEPTH_CAPS	"color_depth_caps"
 #define RK_IF_PROP_COLOR_FORMAT_CAPS	"color_format_caps"
 
+enum rockchip_drm_debug_category {
+	VOP_DEBUG_PLANE		= BIT(0),
+	VOP_DEBUG_OVERLAY	= BIT(1),
+	VOP_DEBUG_WB		= BIT(2),
+	VOP_DEBUG_CFG_DONE	= BIT(3),
+	VOP_DEBUG_VSYNC		= BIT(7),
+};
+
 enum rk_if_color_depth {
 	RK_IF_DEPTH_8,
 	RK_IF_DEPTH_10,
@@ -90,8 +98,10 @@ struct rockchip_drm_sub_dev {
 	struct list_head list;
 	struct drm_connector *connector;
 	struct device_node *of_node;
-	void (*loader_protect)(struct drm_encoder *encoder, bool on);
+	int (*loader_protect)(struct drm_encoder *encoder, bool on);
 	void (*oob_hotplug_event)(struct drm_connector *connector);
+	void (*update_vfp_for_vrr)(struct drm_connector *connector, struct drm_display_mode *mode,
+				   int vfp);
 };
 
 struct rockchip_sdr2hdr_state {
@@ -229,6 +239,10 @@ struct rockchip_crtc_state {
 	struct drm_dsc_picture_parameter_set pps;
 	struct rockchip_dsc_sink_cap dsc_sink_cap;
 	struct rockchip_hdr_state hdr;
+
+	int request_refresh_rate;
+	int max_refresh_rate;
+	int min_refresh_rate;
 };
 
 #define to_rockchip_crtc_state(s) \
@@ -445,6 +459,8 @@ struct rockchip_drm_private {
 	struct loader_cubic_lut cubic_lut[ROCKCHIP_MAX_CRTC];
 };
 
+void rockchip_connector_update_vfp_for_vrr(struct drm_crtc *crtc, struct drm_display_mode *mode,
+					   int vfp);
 int rockchip_drm_dma_attach_device(struct drm_device *drm_dev,
 				   struct device *dev);
 void rockchip_drm_dma_detach_device(struct drm_device *drm_dev,
@@ -478,10 +494,13 @@ uint32_t rockchip_drm_get_bpp(const struct drm_format_info *info);
 int rockchip_drm_get_yuv422_format(struct drm_connector *connector,
 				   struct edid *edid);
 int rockchip_drm_parse_cea_ext(struct rockchip_drm_dsc_cap *dsc_cap,
-			       u8 *max_frl_rate_per_lane, u8 *max_lanes,
+			       u8 *max_frl_rate_per_lane, u8 *max_lanes, u8 *add_func,
 			       const struct edid *edid);
 int rockchip_drm_parse_next_hdr(struct next_hdr_sink_data *sink_data,
 				const struct edid *edid);
+__printf(3, 4)
+void rockchip_drm_dbg(const struct device *dev, enum rockchip_drm_debug_category category,
+		      const char *format, ...);
 
 extern struct platform_driver cdn_dp_driver;
 extern struct platform_driver dw_hdmi_rockchip_pltfm_driver;

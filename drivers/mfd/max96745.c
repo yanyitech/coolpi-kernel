@@ -104,15 +104,11 @@ static void max96745_power_on(struct max96745 *max96745)
 	if (!ret && FIELD_GET(VID_TX_ACTIVE_A | VID_TX_ACTIVE_B, val))
 		return;
 
-	if (max96745->enable_gpio)
+	if (max96745->enable_gpio) {
 		gpiod_direction_output(max96745->enable_gpio, 1);
-	else
-		regmap_update_bits(max96745->regmap, 0x0010, RESET_ALL,
-				   FIELD_PREP(RESET_ALL, 1));
-	msleep(200);
+		msleep(200);
+	}
 
-	regmap_update_bits(max96745->regmap, 0x0100, VID_TX_EN,
-			   FIELD_PREP(VID_TX_EN, 0));
 	regmap_update_bits(max96745->regmap, 0x0076, DIS_REM_CC,
 			   FIELD_PREP(DIS_REM_CC, 1));
 	regmap_update_bits(max96745->regmap, 0x0086, DIS_REM_CC,
@@ -202,6 +198,7 @@ static int max96745_i2c_probe(struct i2c_client *client)
 	struct device_node *child;
 	struct max96745 *max96745;
 	unsigned int nr = 0;
+	bool idle_disc;
 	int ret;
 
 	for_each_available_child_of_node(dev->of_node, child) {
@@ -215,9 +212,11 @@ static int max96745_i2c_probe(struct i2c_client *client)
 	if (!max96745)
 		return -ENOMEM;
 
+	idle_disc = device_property_read_bool(dev, "i2c-mux-idle-disconnect");
+
 	max96745->muxc = i2c_mux_alloc(client->adapter, dev, nr,
-				       0, I2C_MUX_LOCKED,
-				       max96745_select, max96745_deselect);
+				       0, I2C_MUX_LOCKED, max96745_select,
+				       idle_disc ? max96745_deselect : NULL);
 	if (!max96745->muxc)
 		return -ENOMEM;
 

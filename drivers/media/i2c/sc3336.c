@@ -153,6 +153,7 @@ struct sc3336 {
 	struct v4l2_ctrl	*link_freq;
 	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
+	struct v4l2_fract	cur_fps;
 	bool			streaming;
 	bool			power_on;
 	const struct sc3336_mode *cur_mode;
@@ -185,19 +186,17 @@ static const struct regval sc3336_linear_10_2304x1296_25fps_regs[] = {
 	{0x0103, 0x01},
 	{0x36e9, 0x80},
 	{0x37f9, 0x80},
-	{0x301f, 0x62},
+	{0x301f, 0x01},
 	{0x30b8, 0x33},
-	{0x320c, 0x05},
-	{0x320d, 0xdc},
+	{0x320e, 0x06},
+	{0x320f, 0x54},
 	{0x3253, 0x10},
 	{0x325f, 0x20},
 	{0x3301, 0x04},
-	{0x3302, 0xa0},
 	{0x3306, 0x50},
 	{0x3309, 0xa8},
 	{0x330a, 0x00},
 	{0x330b, 0xd8},
-	{0x330d, 0xa0},
 	{0x3314, 0x13},
 	{0x331f, 0x99},
 	{0x3333, 0x10},
@@ -219,7 +218,7 @@ static const struct regval sc3336_linear_10_2304x1296_25fps_regs[] = {
 	{0x3399, 0x04},
 	{0x339a, 0x0a},
 	{0x339b, 0x3a},
-	{0x339c, 0xa0},
+	{0x339c, 0xb4},
 	{0x33a2, 0x04},
 	{0x33ac, 0x08},
 	{0x33ad, 0x1c},
@@ -313,6 +312,7 @@ static const struct regval sc3336_linear_10_2304x1296_25fps_regs[] = {
 	{0x5aed, 0x2c},
 	{0x36e9, 0x54},
 	{0x37f9, 0x27},
+	{0x3028, 0x05},
 	{REG_NULL, 0x00},
 };
 
@@ -470,7 +470,7 @@ static const struct sc3336_mode supported_modes[] = {
 		},
 		.exp_def = 0x0080,
 		.hts_def = 0x05dc,
-		.vts_def = 0x0546,
+		.vts_def = 0x0654,
 		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
 		.reg_list = sc3336_linear_10_2304x1296_25fps_regs,
 		.hdr_mode = NO_HDR,
@@ -590,57 +590,58 @@ static int sc3336_set_gain_reg(struct sc3336 *sc3336, u32 gain)
 {
 	struct i2c_client *client = sc3336->client;
 	u32 coarse_again = 0, coarse_dgain = 0, fine_dgain = 0;
-	int ret = 0;
+	int ret = 0, gain_factor;
 
 	if (gain < 128)
 		gain = 128;
 	else if (gain > SC3336_GAIN_MAX)
 		gain = SC3336_GAIN_MAX;
 
-	if (gain < 1520) {
+	gain_factor = gain * 1000 / 128;
+	if (gain_factor < 1520) {
 		coarse_again = 0x00;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 1000;
-	} else if (gain < 3040) {
+		fine_dgain = gain_factor * 128 / 1000;
+	} else if (gain_factor < 3040) {
 		coarse_again = 0x40;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 1520;
-	} else if (gain < 6080) {
+		fine_dgain = gain_factor * 128 / 1520;
+	} else if (gain_factor < 6080) {
 		coarse_again = 0x48;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 3040;
-	} else if (gain < 12160) {
+		fine_dgain = gain_factor * 128 / 3040;
+	} else if (gain_factor < 12160) {
 		coarse_again = 0x49;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 6080;
-	} else if (gain < 24320) {
+		fine_dgain = gain_factor * 128 / 6080;
+	} else if (gain_factor < 24320) {
 		coarse_again = 0x4b;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 12160;
-	} else if (gain < 48640) {
+		fine_dgain = gain_factor * 128 / 12160;
+	} else if (gain_factor < 48640) {
 		coarse_again = 0x4f;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 24320;
-	} else if (gain < 48640 * 2) {
+		fine_dgain = gain_factor * 128 / 24320;
+	} else if (gain_factor < 48640 * 2) {
 		//open dgain begin  max digital gain 4X
 		coarse_again = 0x5f;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 48640;
-	} else if (gain < 48640 * 4) {
+		fine_dgain = gain_factor * 128 / 48640;
+	} else if (gain_factor < 48640 * 4) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x01;
-		fine_dgain = gain * 128 / 48640 / 2;
-	} else if (gain < 48640 * 8) {
+		fine_dgain = gain_factor * 128 / 48640 / 2;
+	} else if (gain_factor < 48640 * 8) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x03;
-		fine_dgain = gain * 128 / 48640 / 4;
-	} else if (gain < 48640 * 16) {
+		fine_dgain = gain_factor * 128 / 48640 / 4;
+	} else if (gain_factor < 48640 * 16) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x07;
-		fine_dgain = gain * 128 / 48640 / 8;
+		fine_dgain = gain_factor * 128 / 48640 / 8;
 	}
 	dev_dbg(&client->dev, "c_again: 0x%x, c_dgain: 0x%x, f_dgain: 0x%0x\n",
-		coarse_again, coarse_dgain, fine_dgain);
+		    coarse_again, coarse_dgain, fine_dgain);
 
 	ret = sc3336_write_reg(sc3336->client,
 				SC3336_REG_DIG_GAIN,
@@ -725,6 +726,7 @@ static int sc3336_set_fmt(struct v4l2_subdev *sd,
 					 dst_pixel_rate);
 		__v4l2_ctrl_s_ctrl(sc3336->link_freq,
 				   dst_link_freq);
+		sc3336->cur_fps = mode->max_fps;
 	}
 
 	mutex_unlock(&sc3336->mutex);
@@ -817,10 +819,10 @@ static int sc3336_g_frame_interval(struct v4l2_subdev *sd,
 	struct sc3336 *sc3336 = to_sc3336(sd);
 	const struct sc3336_mode *mode = sc3336->cur_mode;
 
-	mutex_lock(&sc3336->mutex);
-	fi->interval = mode->max_fps;
-	mutex_unlock(&sc3336->mutex);
-
+	if (sc3336->streaming)
+		fi->interval = sc3336->cur_fps;
+	else
+		fi->interval = mode->max_fps;
 	return 0;
 }
 
@@ -896,6 +898,7 @@ static long sc3336_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			__v4l2_ctrl_modify_range(sc3336->hblank, w, w, 1, w);
 			__v4l2_ctrl_modify_range(sc3336->vblank, h,
 						 SC3336_VTS_MAX - sc3336->cur_mode->height, 1, h);
+			sc3336->cur_fps = sc3336->cur_mode->max_fps;
 		}
 		break;
 	case PREISP_CMD_SET_HDRAE_EXP:
@@ -1309,6 +1312,14 @@ static const struct v4l2_subdev_ops sc3336_subdev_ops = {
 	.pad	= &sc3336_pad_ops,
 };
 
+static void sc3336_modify_fps_info(struct sc3336 *sc3336)
+{
+	const struct sc3336_mode *mode = sc3336->cur_mode;
+
+	sc3336->cur_fps.denominator = mode->max_fps.denominator * mode->vts_def /
+				      sc3336->cur_vts;
+}
+
 static int sc3336_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct sc3336 *sc3336 = container_of(ctrl->handler,
@@ -1371,6 +1382,8 @@ static int sc3336_set_ctrl(struct v4l2_ctrl *ctrl)
 					 (ctrl->val + sc3336->cur_mode->height)
 					 & 0xff);
 		sc3336->cur_vts = ctrl->val + sc3336->cur_mode->height;
+		if (sc3336->cur_vts != sc3336->cur_mode->vts_def)
+			sc3336_modify_fps_info(sc3336);
 		break;
 	case V4L2_CID_TEST_PATTERN:
 		ret = sc3336_enable_test_pattern(sc3336, ctrl->val);
@@ -1472,6 +1485,7 @@ static int sc3336_initialize_controls(struct sc3336 *sc3336)
 
 	sc3336->subdev.ctrl_handler = handler;
 	sc3336->has_init_exp = false;
+	sc3336->cur_fps = mode->max_fps;
 
 	return 0;
 

@@ -31,10 +31,6 @@ config WIFI_GENERATE_RANDOM_MAC_ADDR
 menuconfig BCMDHD
 	bool "Broadcom Wireless Device Driver Support"
 	default y
-	
-menuconfig AICDHD
-	bool "AIC8800 Wireless Device Driver Support"
-	default y
 
 if BCMDHD
 source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
@@ -42,6 +38,5 @@ endif
 
 source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/infineon/Kconfig"
-source "drivers/net/wireless/rockchip_wlan/aic8800/Kconfig"
 
 endif # WL_ROCKCHIP

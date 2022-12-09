@@ -149,6 +149,11 @@
 #define PX30_DSI_TURNDISABLE		BIT(5)
 #define PX30_DSI_LCDC_SEL		BIT(0)
 
+#define RK3128_GRF_LVDS_CON0		0x0150
+#define RK3128_DSI_FORCETXSTOPMODE	(0xf << 10)
+#define RK3128_DSI_FORCERXMODE		(0x1 << 9)
+#define RK3128_DSI_TURNDISABLE		(0x1 << 8)
+
 #define RK3288_GRF_SOC_CON6		0x025c
 #define RK3288_DSI0_LCDC_SEL		BIT(6)
 #define RK3288_DSI1_LCDC_SEL		BIT(9)
@@ -213,6 +218,7 @@ enum {
 
 enum soc_type {
 	PX30,
+	RK3128,
 	RK3288,
 	RK3399,
 	RK3568,
@@ -830,7 +836,7 @@ static void dw_mipi_dsi_rockchip_loader_protect(struct dw_mipi_dsi_rockchip *dsi
 		dw_mipi_dsi_rockchip_loader_protect(dsi->slave, on);
 }
 
-static void dw_mipi_dsi_rockchip_encoder_loader_protect(struct drm_encoder *encoder,
+static int dw_mipi_dsi_rockchip_encoder_loader_protect(struct drm_encoder *encoder,
 					      bool on)
 {
 	struct dw_mipi_dsi_rockchip *dsi = to_dsi(encoder);
@@ -839,6 +845,8 @@ static void dw_mipi_dsi_rockchip_encoder_loader_protect(struct drm_encoder *enco
 		panel_simple_loader_protect(dsi->panel);
 
 	dw_mipi_dsi_rockchip_loader_protect(dsi, on);
+
+	return 0;
 }
 
 static const struct drm_encoder_helper_funcs
@@ -1281,6 +1289,21 @@ static const struct rockchip_dw_dsi_chip_data px30_chip_data[] = {
 	{ /* sentinel */ }
 };
 
+static const struct rockchip_dw_dsi_chip_data rk3128_chip_data[] = {
+	{
+		.reg = 0x10110000,
+		.lanecfg1_grf_reg = RK3128_GRF_LVDS_CON0,
+		.lanecfg1 = HIWORD_UPDATE(0, RK3128_DSI_TURNDISABLE |
+					     RK3128_DSI_FORCETXSTOPMODE |
+					     RK3128_DSI_FORCERXMODE),
+		.flags = DW_MIPI_NEEDS_HCLK,
+		.max_data_lanes = 4,
+		.max_bit_rate_per_lane = 1000000000UL,
+		.soc_type = RK3128,
+	},
+	{ /* sentinel */ }
+};
+
 static const struct rockchip_dw_dsi_chip_data rk3288_chip_data[] = {
 	{
 		.reg = 0xff960000,
@@ -1405,6 +1428,9 @@ static const struct of_device_id dw_mipi_dsi_rockchip_dt_ids[] = {
 	{
 	 .compatible = "rockchip,px30-mipi-dsi",
 	 .data = &px30_chip_data,
+	}, {
+	 .compatible = "rockchip,rk3128-mipi-dsi",
+	 .data = &rk3128_chip_data,
 	}, {
 	 .compatible = "rockchip,rk3288-mipi-dsi",
 	 .data = &rk3288_chip_data,

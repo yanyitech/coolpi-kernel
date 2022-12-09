@@ -352,6 +352,7 @@ static int vepu_run(struct mpp_dev *mpp,
 	u32 i;
 	u32 reg_en;
 	struct vepu_task *task = to_vepu_task(mpp_task);
+	u32 timing_en = mpp->srv->timing_en;
 
 	mpp_debug_enter();
 
@@ -372,14 +373,26 @@ static int vepu_run(struct mpp_dev *mpp,
 	}
 	/* init current task */
 	mpp->cur_task = mpp_task;
+
+	mpp_task_run_begin(mpp_task, timing_en, MPP_WORK_TIMEOUT_DELAY);
+
 	/* Last, flush the registers */
 	wmb();
 	mpp_write(mpp, VEPU2_REG_ENC_EN,
 		  task->reg[reg_en] | VEPU2_ENC_START);
 
+	mpp_task_run_end(mpp_task, timing_en);
+
 	mpp_debug_leave();
 
 	return 0;
+}
+
+static int vepu_px30_run(struct mpp_dev *mpp,
+		    struct mpp_task *mpp_task)
+{
+	mpp_iommu_flush_tlb(mpp->iommu_info);
+	return vepu_run(mpp, mpp_task);
 }
 
 static int vepu_irq(struct mpp_dev *mpp)
@@ -677,6 +690,10 @@ static int vepu_procfs_init(struct mpp_dev *mpp)
 		enc->procfs = NULL;
 		return -EIO;
 	}
+
+	/* for common mpp_dev options */
+	mpp_procfs_create_common(enc->procfs, mpp);
+
 	mpp_procfs_create_u32("aclk", 0644,
 			      enc->procfs, &enc->aclk_info.debug_rate_hz);
 	mpp_procfs_create_u32("session_buffers", 0644,
@@ -695,8 +712,6 @@ static int vepu_procfs_ccu_init(struct mpp_dev *mpp)
 	if (!enc->procfs)
 		goto done;
 
-	mpp_procfs_create_u32("disable_work", 0644,
-			      enc->procfs, &enc->disable_work);
 done:
 	return 0;
 }
@@ -894,6 +909,20 @@ static struct mpp_dev_ops vepu_v2_dev_ops = {
 	.dump_session = vepu_dump_session,
 };
 
+static struct mpp_dev_ops vepu_px30_dev_ops = {
+	.alloc_task = vepu_alloc_task,
+	.run = vepu_px30_run,
+	.irq = vepu_irq,
+	.isr = vepu_isr,
+	.finish = vepu_finish,
+	.result = vepu_result,
+	.free_task = vepu_free_task,
+	.ioctl = vepu_control,
+	.init_session = vepu_init_session,
+	.free_session = vepu_free_session,
+	.dump_session = vepu_dump_session,
+};
+
 static struct mpp_dev_ops vepu_ccu_dev_ops = {
 	.alloc_task = vepu_alloc_task,
 	.prepare = vepu_prepare,
@@ -923,7 +952,7 @@ static const struct mpp_dev_var vepu_px30_data = {
 	.hw_info = &vepu_v2_hw_info,
 	.trans_info = trans_rk_vepu2,
 	.hw_ops = &vepu_px30_hw_ops,
-	.dev_ops = &vepu_v2_dev_ops,
+	.dev_ops = &vepu_px30_dev_ops,
 };
 
 static const struct mpp_dev_var vepu_ccu_data = {

@@ -145,6 +145,7 @@ struct sc3338 {
 	struct v4l2_ctrl	*vblank;
 	struct v4l2_ctrl	*test_pattern;
 	struct mutex		mutex;
+	struct v4l2_fract	cur_fps;
 	bool			streaming;
 	bool			power_on;
 	const struct sc3338_mode *cur_mode;
@@ -177,19 +178,17 @@ static const struct regval sc3338_linear_10_2304x1296_regs[] = {
 	{0x0103, 0x01},
 	{0x36e9, 0x80},
 	{0x37f9, 0x80},
-	{0x301f, 0x62},
+	{0x301f, 0x01},
 	{0x30b8, 0x33},
-	{0x320c, 0x05},
-	{0x320d, 0xdc},
+	{0x320e, 0x06},
+	{0x320f, 0x54},
 	{0x3253, 0x10},
 	{0x325f, 0x20},
 	{0x3301, 0x04},
-	{0x3302, 0xa0},
 	{0x3306, 0x50},
 	{0x3309, 0xa8},
 	{0x330a, 0x00},
 	{0x330b, 0xd8},
-	{0x330d, 0xa0},
 	{0x3314, 0x13},
 	{0x331f, 0x99},
 	{0x3333, 0x10},
@@ -211,7 +210,7 @@ static const struct regval sc3338_linear_10_2304x1296_regs[] = {
 	{0x3399, 0x04},
 	{0x339a, 0x0a},
 	{0x339b, 0x3a},
-	{0x339c, 0xa0},
+	{0x339c, 0xb4},
 	{0x33a2, 0x04},
 	{0x33ac, 0x08},
 	{0x33ad, 0x1c},
@@ -305,6 +304,7 @@ static const struct regval sc3338_linear_10_2304x1296_regs[] = {
 	{0x5aed, 0x2c},
 	{0x36e9, 0x54},
 	{0x37f9, 0x27},
+	{0x3028, 0x05},
 	{REG_NULL, 0x00},
 };
 
@@ -318,7 +318,7 @@ static const struct sc3338_mode supported_modes[] = {
 		},
 		.exp_def = 0x0080,
 		.hts_def = 0x05dc * 2,
-		.vts_def = 0x0546,
+		.vts_def = 0x0654,
 		.bus_fmt = MEDIA_BUS_FMT_SBGGR10_1X10,
 		.reg_list = sc3338_linear_10_2304x1296_regs,
 		.hdr_mode = NO_HDR,
@@ -418,54 +418,55 @@ static int sc3338_set_gain_reg(struct sc3338 *sc3338, u32 gain)
 {
 	struct i2c_client *client = sc3338->client;
 	u32 coarse_again = 0, coarse_dgain = 0, fine_dgain = 0;
-	int ret = 0;
+	int ret = 0, gain_factor;
 
 	if (gain < 128)
 		gain = 128;
 	else if (gain > SC3338_GAIN_MAX)
 		gain = SC3338_GAIN_MAX;
 
-	if (gain < 1520) {
+	gain_factor = gain * 1000 / 128;
+	if (gain_factor < 1520) {
 		coarse_again = 0x00;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 1000;
-	} else if (gain < 3040) {
+		fine_dgain = gain_factor * 128 / 1000;
+	} else if (gain_factor < 3040) {
 		coarse_again = 0x40;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 1520;
-	} else if (gain < 6080) {
+		fine_dgain = gain_factor * 128 / 1520;
+	} else if (gain_factor < 6080) {
 		coarse_again = 0x48;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 3040;
-	} else if (gain < 12160) {
+		fine_dgain = gain_factor * 128 / 3040;
+	} else if (gain_factor < 12160) {
 		coarse_again = 0x49;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 6080;
-	} else if (gain < 24320) {
+		fine_dgain = gain_factor * 128 / 6080;
+	} else if (gain_factor < 24320) {
 		coarse_again = 0x4b;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 12160;
-	} else if (gain < 48640) {
+		fine_dgain = gain_factor * 128 / 12160;
+	} else if (gain_factor < 48640) {
 		coarse_again = 0x4f;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 24320;
-	} else if (gain < 48640 * 2) {
+		fine_dgain = gain_factor * 128 / 24320;
+	} else if (gain_factor < 48640 * 2) {
 		//open dgain begin  max digital gain 4X
 		coarse_again = 0x5f;
 		coarse_dgain = 0x00;
-		fine_dgain = gain * 128 / 48640;
-	} else if (gain < 48640 * 4) {
+		fine_dgain = gain_factor * 128 / 48640;
+	} else if (gain_factor < 48640 * 4) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x01;
-		fine_dgain = gain * 128 / 48640 / 2;
-	} else if (gain < 48640 * 8) {
+		fine_dgain = gain_factor * 128 / 48640 / 2;
+	} else if (gain_factor < 48640 * 8) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x03;
-		fine_dgain = gain * 128 / 48640 / 4;
-	} else if (gain < 48640 * 16) {
+		fine_dgain = gain_factor * 128 / 48640 / 4;
+	} else if (gain_factor < 48640 * 16) {
 		coarse_again = 0x5f;
 		coarse_dgain = 0x07;
-		fine_dgain = gain * 128 / 48640 / 8;
+		fine_dgain = gain_factor * 128 / 48640 / 8;
 	}
 	dev_dbg(&client->dev, "c_again: 0x%x, c_dgain: 0x%x, f_dgain: 0x%0x\n",
 		    coarse_again, coarse_dgain, fine_dgain);
@@ -544,6 +545,7 @@ static int sc3338_set_fmt(struct v4l2_subdev *sd,
 		__v4l2_ctrl_modify_range(sc3338->vblank, vblank_def,
 					 SC3338_VTS_MAX - mode->height,
 					 1, vblank_def);
+		sc3338->cur_fps = mode->max_fps;
 	}
 
 	mutex_unlock(&sc3338->mutex);
@@ -636,9 +638,10 @@ static int sc3338_g_frame_interval(struct v4l2_subdev *sd,
 	struct sc3338 *sc3338 = to_sc3338(sd);
 	const struct sc3338_mode *mode = sc3338->cur_mode;
 
-	mutex_lock(&sc3338->mutex);
-	fi->interval = mode->max_fps;
-	mutex_unlock(&sc3338->mutex);
+	if (sc3338->streaming)
+		fi->interval = sc3338->cur_fps;
+	else
+		fi->interval = mode->max_fps;
 
 	return 0;
 }
@@ -715,6 +718,7 @@ static long sc3338_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 			__v4l2_ctrl_modify_range(sc3338->hblank, w, w, 1, w);
 			__v4l2_ctrl_modify_range(sc3338->vblank, h,
 						 SC3338_VTS_MAX - sc3338->cur_mode->height, 1, h);
+			sc3338->cur_fps = sc3338->cur_mode->max_fps;
 		}
 		break;
 	case PREISP_CMD_SET_HDRAE_EXP:
@@ -851,8 +855,10 @@ static int __sc3338_start_stream(struct sc3338 *sc3338)
 static int __sc3338_stop_stream(struct sc3338 *sc3338)
 {
 	sc3338->has_init_exp = false;
-	if (sc3338->is_thunderboot)
+	if (sc3338->is_thunderboot) {
 		sc3338->is_first_streamoff = true;
+		pm_runtime_put(&sc3338->client->dev);
+	}
 	return sc3338_write_reg(sc3338->client, SC3338_REG_CTRL_MODE,
 				 SC3338_REG_VALUE_08BIT, SC3338_MODE_SW_STANDBY);
 }
@@ -1126,6 +1132,14 @@ static const struct v4l2_subdev_ops sc3338_subdev_ops = {
 	.pad	= &sc3338_pad_ops,
 };
 
+static void sc3338_modify_fps_info(struct sc3338 *sc3338)
+{
+	const struct sc3338_mode *mode = sc3338->cur_mode;
+
+	sc3338->cur_fps.denominator = mode->max_fps.denominator * mode->vts_def /
+				      sc3338->cur_vts;
+}
+
 static int sc3338_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct sc3338 *sc3338 = container_of(ctrl->handler,
@@ -1188,6 +1202,8 @@ static int sc3338_set_ctrl(struct v4l2_ctrl *ctrl)
 					 (ctrl->val + sc3338->cur_mode->height)
 					 & 0xff);
 		sc3338->cur_vts = ctrl->val + sc3338->cur_mode->height;
+		if (sc3338->cur_vts != sc3338->cur_mode->vts_def)
+			sc3338_modify_fps_info(sc3338);
 		break;
 	case V4L2_CID_TEST_PATTERN:
 		ret = sc3338_enable_test_pattern(sc3338, ctrl->val);
@@ -1282,6 +1298,7 @@ static int sc3338_initialize_controls(struct sc3338 *sc3338)
 
 	sc3338->subdev.ctrl_handler = handler;
 	sc3338->has_init_exp = false;
+	sc3338->cur_fps = mode->max_fps;
 
 	return 0;
 
@@ -1455,7 +1472,10 @@ static int sc3338_probe(struct i2c_client *client,
 
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
-	pm_runtime_idle(dev);
+	if (sc3338->is_thunderboot)
+		pm_runtime_get_sync(dev);
+	else
+		pm_runtime_idle(dev);
 
 	return 0;
 

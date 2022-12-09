@@ -4104,6 +4104,10 @@ void __isp_config_hdrshd(struct rkisp_isp_params_vdev *params_vdev)
 	struct rkisp_isp_params_val_v3x *priv_val =
 		(struct rkisp_isp_params_val_v3x *)params_vdev->priv_val;
 
+	if (params_vdev->dev->hw_dev->is_unite) {
+		ops->hdrmge_config(params_vdev, &priv_val->last_hdrmge, RKISP_PARAMS_SHD, 1);
+		ops->hdrdrc_config(params_vdev, &priv_val->last_hdrdrc, RKISP_PARAMS_SHD, 1);
+	}
 	ops->hdrmge_config(params_vdev, &priv_val->last_hdrmge, RKISP_PARAMS_SHD, 0);
 	ops->hdrdrc_config(params_vdev, &priv_val->last_hdrdrc, RKISP_PARAMS_SHD, 0);
 }
@@ -4272,7 +4276,7 @@ multi_overflow:
 		 *
 		 * case1:      bigmode               special reg cfg
 		 *  _________  max width:4672
-		 * | sensor0 | max size:2560*1536*2  mode=0 index=0
+		 * | sensor0 | max size:3840*2160    mode=0 index=0
 		 * |_________|
 		 * |_sensor1_| max size:2560*1536    mode=2 index=2
 		 * |_sensor2_| max size:2560*1536    mode=2 index=3
@@ -4292,7 +4296,7 @@ multi_overflow:
 		if (k) {
 			is_bigmode = true;
 			if (k != 1 ||
-			    (hw->isp_size[idx1[0]].size > ISP3X_VIR4_MAX_SIZE * 2)) {
+			    (hw->isp_size[idx1[0]].size > ISP3X_VIR2_MAX_SIZE)) {
 				dev_warn(dev, "isp%d %dx%d over three vir isp max:%dx1536\n",
 					 idx1[0], hw->isp_size[idx1[0]].w, hw->isp_size[idx1[0]].h,
 					 hw->is_unite ? (2560 - RKMOUDLE_UNITE_EXTEND_PIXEL) * 2 : 2560);
@@ -4327,8 +4331,8 @@ multi_overflow:
 		 *
 		 * case1:      bigmode              special reg cfg
 		 *  _________  max width:4672
-		 * | sensor0 | max size:2560*2160*3 mode=0 index=0
-		 * |         |
+		 * | sensor0 | max size:            mode=0 index=0
+		 * |         | 3840*2160+2560*2160
 		 * |_________|
 		 * |_sensor1_| max size:2560*1536   mode=2 index=3
 		 *             max width:2560
@@ -4351,7 +4355,7 @@ multi_overflow:
 		if (k) {
 			is_bigmode = true;
 			if (k == 2 || j ||
-			    hw->isp_size[idx1[k - 1]].size > ISP3X_VIR4_MAX_SIZE * 3) {
+			    hw->isp_size[idx1[k - 1]].size > (ISP3X_VIR4_MAX_SIZE + ISP3X_VIR2_MAX_SIZE)) {
 				dev_warn(dev, "isp%d %dx%d over two vir isp max:%dx2160\n",
 					 idx1[k - 1], hw->isp_size[idx1[k - 1]].w, hw->isp_size[idx1[k - 1]].h,
 					 hw->is_unite ? (3840 - RKMOUDLE_UNITE_EXTEND_PIXEL) * 2 : 3840);

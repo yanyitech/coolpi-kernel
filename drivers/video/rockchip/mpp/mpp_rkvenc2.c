@@ -160,7 +160,12 @@ union rkvenc2_dual_core_handshake_id {
 #define RKVENC2_REG_INT_MASK		(9)
 #define RKVENC2_BIT_SLICE_DONE_MASK	BIT(3)
 
+#define RKVENC2_REG_EXT_LINE_BUF_BASE	(22)
+
 #define RKVENC2_REG_ENC_PIC		(32)
+#define RKVENC2_BIT_ENC_STND		BIT(0)
+#define RKVENC2_BIT_VAL_H264		0
+#define RKVENC2_BIT_VAL_H265		1
 #define RKVENC2_BIT_SLEN_FIFO		BIT(30)
 
 #define RKVENC2_REG_SLI_SPLIT		(56)
@@ -263,7 +268,6 @@ struct rkvenc_dev {
 	/* for ccu */
 	struct rkvenc_ccu *ccu;
 	struct list_head core_link;
-	u32 disable_work;
 
 	/* internal rcb-memory */
 	u32 sram_size;
@@ -707,19 +711,33 @@ static void rkvenc2_setup_task_id(u32 session_id, struct rkvenc_task *task)
 	task->dchs_id.rxe_map = task->dchs_id.rxe;
 }
 
-static int rkvenc2_is_split_task(struct rkvenc_task *task)
+static void rkvenc2_check_split_task(struct rkvenc_task *task)
 {
+	u32 slen_fifo_en = 0;
+	u32 sli_split_en = 0;
+
 	if (task->reg[RKVENC_CLASS_PIC].valid) {
 		u32 *reg = task->reg[RKVENC_CLASS_PIC].data;
-		u32 slen_fifo_en = (reg[RKVENC2_REG_ENC_PIC] & RKVENC2_BIT_SLEN_FIFO) ? 1 : 0;
-		u32 sli_split_en = (reg[RKVENC2_REG_SLI_SPLIT] & RKVENC2_BIT_SLI_SPLIT) ? 1 : 0;
-		u32 sli_flsh_en  = (reg[RKVENC2_REG_SLI_SPLIT] & RKVENC2_BIT_SLI_FLUSH) ? 1 : 0;
+		u32 enc_stnd = reg[RKVENC2_REG_ENC_PIC] & RKVENC2_BIT_ENC_STND;
 
-		if (sli_split_en && slen_fifo_en && sli_flsh_en)
-			return 1;
+		slen_fifo_en = (reg[RKVENC2_REG_ENC_PIC] & RKVENC2_BIT_SLEN_FIFO) ? 1 : 0;
+		sli_split_en = (reg[RKVENC2_REG_SLI_SPLIT] & RKVENC2_BIT_SLI_SPLIT) ? 1 : 0;
+
+		/*
+		 * FIXUP: rkvenc2 hardware bug:
+		 * H.264 encoding has bug when external line buffer and slice flush both
+		 * are enabled.
+		 */
+		if (sli_split_en && slen_fifo_en &&
+		    enc_stnd == RKVENC2_BIT_VAL_H264 &&
+		    reg[RKVENC2_REG_EXT_LINE_BUF_BASE])
+			reg[RKVENC2_REG_SLI_SPLIT] &= ~RKVENC2_BIT_SLI_FLUSH;
 	}
 
-	return 0;
+	task->task_split = sli_split_en && slen_fifo_en;
+
+	if (task->task_split)
+		INIT_KFIFO(task->slice_info);
 }
 
 static void *rkvenc_alloc_task(struct mpp_session *session,
@@ -781,9 +799,7 @@ static void *rkvenc_alloc_task(struct mpp_session *session,
 	}
 	rkvenc2_setup_task_id(session->index, task);
 	task->clk_mode = CLK_MODE_NORMAL;
-	task->task_split = rkvenc2_is_split_task(task);
-	if (task->task_split)
-		INIT_KFIFO(task->slice_info);
+	rkvenc2_check_split_task(task);
 
 	mpp_debug_leave();
 
@@ -815,10 +831,10 @@ static void *rkvenc2_prepare(struct mpp_dev *mpp, struct mpp_task *mpp_task)
 	core_idle = queue->core_idle;
 	core_id_max = queue->core_id_max;
 
-	for (i = 0; i < core_id_max; i++) {
+	for (i = 0; i <= core_id_max; i++) {
 		struct mpp_dev *mpp = queue->cores[i];
 
-		if (mpp && to_rkvenc_dev(mpp)->disable_work)
+		if (mpp && mpp->disable)
 			clear_bit(i, &core_idle);
 	}
 
@@ -1003,6 +1019,7 @@ static int rkvenc_run(struct mpp_dev *mpp, struct mpp_task *mpp_task)
 	struct rkvenc_dev *enc = to_rkvenc_dev(mpp);
 	struct rkvenc_task *task = to_rkvenc_task(mpp_task);
 	struct rkvenc_hw_info *hw = enc->hw_info;
+	u32 timing_en = mpp->srv->timing_en;
 
 	mpp_debug_enter();
 
@@ -1051,9 +1068,14 @@ static int rkvenc_run(struct mpp_dev *mpp, struct mpp_task *mpp_task)
 	/* init current task */
 	mpp->cur_task = mpp_task;
 
+	mpp_task_run_begin(mpp_task, timing_en, MPP_WORK_TIMEOUT_DELAY);
+
 	/* Flush the register before the start the device */
 	wmb();
+
 	mpp_write(mpp, enc->hw_info->enc_start_base, start_val);
+
+	mpp_task_run_end(mpp_task, timing_en);
 
 	mpp_debug_leave();
 
@@ -1178,10 +1200,12 @@ static int rkvenc_isr(struct mpp_dev *mpp)
 
 	if (task->irq_status & enc->hw_info->err_mask) {
 		atomic_inc(&mpp->reset_request);
-		/* dump register */
 
-		mpp_task_dump_hw_reg(mpp);
+		/* dump register */
+		if (mpp_debug_unlikely(DEBUG_DUMP_ERR_REG))
+			mpp_task_dump_hw_reg(mpp);
 	}
+
 	mpp_task_finish(mpp_task->session, mpp_task);
 
 	core_idle = queue->core_idle;
@@ -1435,6 +1459,10 @@ static int rkvenc_procfs_init(struct mpp_dev *mpp)
 		enc->procfs = NULL;
 		return -EIO;
 	}
+
+	/* for common mpp_dev options */
+	mpp_procfs_create_common(enc->procfs, mpp);
+
 	/* for debug */
 	mpp_procfs_create_u32("aclk", 0644,
 			      enc->procfs, &enc->aclk_info.debug_rate_hz);
@@ -1445,8 +1473,6 @@ static int rkvenc_procfs_init(struct mpp_dev *mpp)
 	/* for show session info */
 	proc_create_single_data("sessions-info", 0444,
 				enc->procfs, rkvenc_show_session_info, mpp);
-	mpp_procfs_create_u32("disable_work", 0644,
-			      enc->procfs, &enc->disable_work);
 
 	return 0;
 }

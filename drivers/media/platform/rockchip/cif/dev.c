@@ -28,6 +28,8 @@
 #include "procfs.h"
 #include <linux/kthread.h>
 #include "../../../../phy/rockchip/phy-rockchip-csi2-dphy-common.h"
+#include <linux/of_reserved_mem.h>
+#include <linux/of_address.h>
 
 #define RKCIF_VERNO_LEN		10
 
@@ -118,7 +120,7 @@ static ssize_t rkcif_store_line_int_num(struct device *dev,
 	int val = 0;
 	int ret = 0;
 
-	if (priv->toisp_inf.link_mode != TOISP_NONE) {
+	if (priv && priv->mode.rdbk_mode == RKISP_VICAP_ONLINE) {
 		dev_info(cif_dev->dev,
 			 "current mode is on the fly, wake up mode wouldn't used\n");
 		return len;
@@ -569,6 +571,35 @@ static ssize_t rkcif_store_capture_fps(struct device *dev,
 }
 static DEVICE_ATTR(fps, 0200, NULL, rkcif_store_capture_fps);
 
+static ssize_t rkcif_show_rdbk_debug(struct device *dev,
+					      struct device_attribute *attr,
+					      char *buf)
+{
+	struct rkcif_device *cif_dev = (struct rkcif_device *)dev_get_drvdata(dev);
+	int ret;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
+		       cif_dev->rdbk_debug);
+	return ret;
+}
+
+static ssize_t rkcif_store_rdbk_debug(struct device *dev,
+					       struct device_attribute *attr,
+					       const char *buf, size_t len)
+{
+	struct rkcif_device *cif_dev = (struct rkcif_device *)dev_get_drvdata(dev);
+	int val = 0;
+	int ret = 0;
+
+	ret = kstrtoint(buf, 0, &val);
+	if (!ret)
+		cif_dev->rdbk_debug = val;
+	else
+		dev_info(cif_dev->dev, "set rdbk debug failed\n");
+	return len;
+}
+static DEVICE_ATTR(rdbk_debug, 0200, rkcif_show_rdbk_debug, rkcif_store_rdbk_debug);
+
 static struct attribute *dev_attrs[] = {
 	&dev_attr_compact_test.attr,
 	&dev_attr_wait_line.attr,
@@ -579,6 +610,7 @@ static struct attribute *dev_attrs[] = {
 	&dev_attr_scale_ch2_blc.attr,
 	&dev_attr_scale_ch3_blc.attr,
 	&dev_attr_fps.attr,
+	&dev_attr_rdbk_debug.attr,
 	NULL,
 };
 
@@ -1017,6 +1049,13 @@ static void rkcif_set_sensor_streamon_in_sync_mode(struct rkcif_device *cif_dev)
 	mutex_unlock(&hw->dev_lock);
 }
 
+static void rkcif_sensor_streaming_cb(void *data)
+{
+	struct v4l2_subdev *subdevs = (struct v4l2_subdev *)data;
+
+	v4l2_subdev_call(subdevs, video, s_stream, 1);
+}
+
 /*
  * stream-on order: isp_subdev, mipi dphy, sensor
  * stream-off order: mipi dphy, sensor, isp_subdev
@@ -1025,7 +1064,7 @@ static int rkcif_pipeline_set_stream(struct rkcif_pipeline *p, bool on)
 {
 	struct rkcif_device *cif_dev = container_of(p, struct rkcif_device, pipe);
 	bool can_be_set = false;
-	int i, ret;
+	int i, ret = 0;
 
 	if (cif_dev->hdr.hdr_mode == NO_HDR || cif_dev->hdr.hdr_mode == HDR_COMPR) {
 		if ((on && atomic_inc_return(&p->stream_cnt) > 1) ||
@@ -1054,7 +1093,16 @@ static int rkcif_pipeline_set_stream(struct rkcif_pipeline *p, bool on)
 
 		/* phy -> sensor */
 		for (i = 0; i < p->num_subdevs; i++) {
-			ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+			if (p->subdevs[i] == cif_dev->terminal_sensor.sd &&
+			    on &&
+			    cif_dev->is_thunderboot &&
+			    !rk_tb_mcu_is_done()) {
+				cif_dev->tb_client.data = p->subdevs[i];
+				cif_dev->tb_client.cb = rkcif_sensor_streaming_cb;
+				rk_tb_client_register_cb(&cif_dev->tb_client);
+			} else {
+				ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+			}
 			if (on && ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV)
 				goto err_stream_off;
 		}
@@ -1118,8 +1166,16 @@ static int rkcif_pipeline_set_stream(struct rkcif_pipeline *p, bool on)
 
 			/* phy -> sensor */
 			for (i = 0; i < p->num_subdevs; i++) {
-				ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
-
+				if (p->subdevs[i] == cif_dev->terminal_sensor.sd &&
+				    on &&
+				    cif_dev->is_thunderboot &&
+				    !rk_tb_mcu_is_done()) {
+					cif_dev->tb_client.data = p->subdevs[i];
+					cif_dev->tb_client.cb = rkcif_sensor_streaming_cb;
+					rk_tb_client_register_cb(&cif_dev->tb_client);
+				} else {
+					ret = v4l2_subdev_call(p->subdevs[i], video, s_stream, on);
+				}
 				if (on && ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV)
 					goto err_stream_off;
 			}
@@ -1350,8 +1406,8 @@ static int subdev_asyn_register_itf(struct rkcif_device *dev)
 
 	ret = rkcif_update_sensor_info(&dev->stream[0]);
 	if (ret) {
-		//v4l2_err(&dev->v4l2_dev,
-		//	 "There is not terminal subdev, not synchronized with ISP\n");
+		v4l2_err(&dev->v4l2_dev,
+			 "There is not terminal subdev, not synchronized with ISP\n");
 		return 0;
 	}
 	sditf = dev->sditf[0];
@@ -1803,6 +1859,7 @@ int rkcif_plat_init(struct rkcif_device *cif_dev, struct device_node *node, int 
 	mutex_init(&cif_dev->scale_lock);
 	mutex_init(&cif_dev->tools_lock);
 	spin_lock_init(&cif_dev->hdr_lock);
+	spin_lock_init(&cif_dev->buffree_lock);
 	spin_lock_init(&cif_dev->reset_watchdog_timer.timer_lock);
 	spin_lock_init(&cif_dev->reset_watchdog_timer.csi2_err_lock);
 	atomic_set(&cif_dev->pipe.power_cnt, 0);
@@ -1817,6 +1874,10 @@ int rkcif_plat_init(struct rkcif_device *cif_dev, struct device_node *node, int 
 	cif_dev->sync_type = NO_SYNC_MODE;
 	cif_dev->sditf_cnt = 0;
 	cif_dev->is_notifier_isp = false;
+	cif_dev->sensor_linetime = 0;
+	cif_dev->early_line = 0;
+	cif_dev->is_thunderboot = false;
+	cif_dev->rdbk_debug = 0;
 	if (cif_dev->chip_id == CHIP_RV1126_CIF_LITE)
 		cif_dev->isr_hdl = rkcif_irq_lite_handler;
 
@@ -1970,6 +2031,35 @@ static void rkcif_parse_dts(struct rkcif_device *cif_dev)
 	dev_info(cif_dev->dev, "rkcif wait line %d\n", cif_dev->wait_line);
 }
 
+static int rkcif_get_reserved_mem(struct rkcif_device *cif_dev)
+{
+	struct device *dev = cif_dev->dev;
+	struct device_node *np;
+	struct resource r;
+	int ret;
+
+	/* Get reserved memory region from Device-tree */
+	np = of_parse_phandle(dev->of_node, "memory-region-thunderboot", 0);
+	if (!np) {
+		dev_info(dev, "No memory-region-thunderboot specified\n");
+		return 0;
+	}
+
+	ret = of_address_to_resource(np, 0, &r);
+	if (ret) {
+		dev_err(dev, "No memory address assigned to the region\n");
+		return ret;
+	}
+
+	cif_dev->resmem_pa = r.start;
+	cif_dev->resmem_size = resource_size(&r);
+	cif_dev->is_thunderboot = true;
+	dev_info(dev, "Allocated reserved memory, paddr: 0x%x, size 0x%x\n",
+		 (u32)cif_dev->resmem_pa,
+		 (u32)cif_dev->resmem_size);
+	return ret;
+}
+
 static int rkcif_plat_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
@@ -2010,6 +2100,10 @@ static int rkcif_plat_probe(struct platform_device *pdev)
 		rkcif_detach_hw(cif_dev);
 		return ret;
 	}
+
+	ret = rkcif_get_reserved_mem(cif_dev);
+	if (ret)
+		return ret;
 
 	if (rkcif_proc_init(cif_dev))
 		dev_warn(dev, "dev:%s create proc failed\n", dev_name(dev));
@@ -2094,13 +2188,15 @@ module_param_call(clr_unready_dev, rkcif_clr_unready_dev_param_set, NULL, NULL, 
 MODULE_PARM_DESC(clr_unready_dev, "clear unready devices");
 
 #ifndef MODULE
-static int __init rkcif_clr_unready_dev(void)
+int rkcif_clr_unready_dev(void)
 {
 	__rkcif_clr_unready_dev();
 
 	return 0;
 }
+#ifndef CONFIG_VIDEO_REVERSE_IMAGE
 late_initcall(rkcif_clr_unready_dev);
+#endif
 #endif
 
 static const struct dev_pm_ops rkcif_plat_pm_ops = {

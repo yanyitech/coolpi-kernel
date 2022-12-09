@@ -245,6 +245,9 @@ struct rkisp_device {
 	bool is_cmsk_upd;
 	bool is_hw_link;
 	bool is_bigmode;
+	bool is_rdbk_auto;
+	bool is_pre_on;
+	bool is_first_double;
 
 	struct rkisp_vicap_input vicap_in;
 

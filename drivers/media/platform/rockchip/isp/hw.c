@@ -594,7 +594,15 @@ static inline bool is_iommu_enable(struct device *dev)
 void rkisp_soft_reset(struct rkisp_hw_dev *dev, bool is_secure)
 {
 	void __iomem *base = dev->base_addr;
-	u32 val;
+	u32 val, iccl0, iccl1, clk_ctrl0, clk_ctrl1;
+
+	/* record clk config and recover */
+	iccl0 = readl(base + CIF_ICCL);
+	clk_ctrl0 = readl(base + CTRL_VI_ISP_CLK_CTRL);
+	if (dev->is_unite) {
+		iccl1 = readl(dev->base_next_addr + CIF_ICCL);
+		clk_ctrl1 = readl(dev->base_next_addr + CTRL_VI_ISP_CLK_CTRL);
+	}
 
 	if (is_secure) {
 		/* if isp working, cru reset isn't secure.
@@ -632,6 +640,29 @@ void rkisp_soft_reset(struct rkisp_hw_dev *dev, bool is_secure)
 	if (dev->is_mmu) {
 		rockchip_iommu_disable(dev->dev);
 		rockchip_iommu_enable(dev->dev);
+	}
+
+	writel(iccl0, base + CIF_ICCL);
+	writel(clk_ctrl0, base + CTRL_VI_ISP_CLK_CTRL);
+	if (dev->is_unite) {
+		writel(iccl1, dev->base_next_addr + CIF_ICCL);
+		writel(clk_ctrl1, dev->base_next_addr + CTRL_VI_ISP_CLK_CTRL);
+	}
+
+	/* default config */
+	if (dev->isp_ver == ISP_V12 || dev->isp_ver == ISP_V13) {
+		/* disable csi_rx interrupt */
+		writel(0, dev->base_addr + CIF_ISP_CSI0_CTRL0);
+		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK1);
+		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK2);
+		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK3);
+	} else if (dev->isp_ver == ISP_V32) {
+		/* disable down samplling default */
+		writel(ISP32_DS_DS_DIS, dev->base_addr + ISP32_MI_MPDS_WR_CTRL);
+		writel(ISP32_DS_DS_DIS, dev->base_addr + ISP32_MI_BPDS_WR_CTRL);
+
+		writel(0, dev->base_addr + ISP32_BLS_ISP_OB_PREDGAIN);
+		writel(0x37, dev->base_addr + ISP32_MI_WR_WRAP_CTRL);
 	}
 }
 
@@ -722,22 +753,6 @@ static int enable_sys_clk(struct rkisp_hw_dev *dev)
 		rkisp_set_clk_rate(dev->clks[5], rate);
 	rkisp_soft_reset(dev, false);
 	isp_config_clk(dev, true);
-
-	if (dev->isp_ver == ISP_V12 || dev->isp_ver == ISP_V13) {
-		/* disable csi_rx interrupt */
-		writel(0, dev->base_addr + CIF_ISP_CSI0_CTRL0);
-		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK1);
-		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK2);
-		writel(0, dev->base_addr + CIF_ISP_CSI0_MASK3);
-	} else if (dev->isp_ver == ISP_V32) {
-		/* disable down samplling default */
-		writel(ISP32_DS_DS_DIS, dev->base_addr + ISP32_MI_MPDS_WR_CTRL);
-		writel(ISP32_DS_DS_DIS, dev->base_addr + ISP32_MI_BPDS_WR_CTRL);
-
-		writel(0, dev->base_addr + ISP32_BLS_ISP_OB_PREDGAIN);
-		writel(0x37, dev->base_addr + ISP32_MI_WR_WRAP_CTRL);
-	}
-
 	return 0;
 err:
 	for (--i; i >= 0; --i)
@@ -975,28 +990,18 @@ static int __maybe_unused rkisp_runtime_suspend(struct device *dev)
 	return pinctrl_pm_select_sleep_state(dev);
 }
 
-static int __maybe_unused rkisp_runtime_resume(struct device *dev)
+void rkisp_hw_enum_isp_size(struct rkisp_hw_dev *hw_dev)
 {
-	struct rkisp_hw_dev *hw_dev = dev_get_drvdata(dev);
-	void __iomem *base = hw_dev->base_addr;
 	struct rkisp_device *isp;
-	int mult = hw_dev->is_unite ? 2 : 1;
-	int ret, i;
+	u32 w, h, i;
 
-	ret = pinctrl_pm_select_default_state(dev);
-	if (ret < 0)
-		return ret;
-
-	enable_sys_clk(hw_dev);
 	memset(hw_dev->isp_size, 0, sizeof(hw_dev->isp_size));
 	if (!hw_dev->max_in.is_fix) {
 		hw_dev->max_in.w = 0;
 		hw_dev->max_in.h = 0;
 	}
+	hw_dev->dev_link_num = 0;
 	for (i = 0; i < hw_dev->dev_num; i++) {
-		void *buf;
-		u32 w, h;
-
 		isp = hw_dev->isp[i];
 		if (!isp || (isp && !isp->is_hw_link))
 			continue;
@@ -1015,6 +1020,33 @@ static int __maybe_unused rkisp_runtime_resume(struct device *dev)
 			if (hw_dev->max_in.h < h)
 				hw_dev->max_in.h = h;
 		}
+	}
+	for (i = 0; i < hw_dev->dev_num; i++) {
+		isp = hw_dev->isp[i];
+		if (!isp || (isp && !isp->is_hw_link))
+			continue;
+		rkisp_params_check_bigmode(&isp->params_vdev);
+	}
+}
+
+static int __maybe_unused rkisp_runtime_resume(struct device *dev)
+{
+	struct rkisp_hw_dev *hw_dev = dev_get_drvdata(dev);
+	void __iomem *base = hw_dev->base_addr;
+	struct rkisp_device *isp;
+	int mult = hw_dev->is_unite ? 2 : 1;
+	int ret, i;
+	void *buf;
+
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret < 0)
+		return ret;
+
+	enable_sys_clk(hw_dev);
+	for (i = 0; i < hw_dev->dev_num; i++) {
+		isp = hw_dev->isp[i];
+		if (!isp)
+			continue;
 		buf = isp->sw_base_addr;
 		memset(buf, 0, RKISP_ISP_SW_MAX_SIZE * mult);
 		memcpy_fromio(buf, base, RKISP_ISP_SW_REG_SIZE);
@@ -1025,12 +1057,7 @@ static int __maybe_unused rkisp_runtime_resume(struct device *dev)
 		}
 		default_sw_reg_flag(hw_dev->isp[i]);
 	}
-	for (i = 0; i < hw_dev->dev_num; i++) {
-		isp = hw_dev->isp[i];
-		if (!isp || (isp && !isp->is_hw_link))
-			continue;
-		rkisp_params_check_bigmode(&isp->params_vdev);
-	}
+	rkisp_hw_enum_isp_size(hw_dev);
 	hw_dev->monitor.is_en = rkisp_monitor;
 	return 0;
 }
