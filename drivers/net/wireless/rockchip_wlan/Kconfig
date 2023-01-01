@@ -28,6 +28,10 @@ config WIFI_GENERATE_RANDOM_MAC_ADDR
 	help
 	  Wifi generate random mac address and save to vendor storage for cob chip
 
+menuconfig AICDHD
+	bool "AIC8800 Wireless Device Driver Support"
+	default y
+
 menuconfig BCMDHD
 	bool "Broadcom Wireless Device Driver Support"
 	default y
@@ -38,5 +42,6 @@ endif
 
 source "drivers/net/wireless/rockchip_wlan/cywdhd/Kconfig"
 source "drivers/net/wireless/rockchip_wlan/infineon/Kconfig"
+source "drivers/net/wireless/rockchip_wlan/aic8800/Kconfig"
 
 endif # WL_ROCKCHIP
