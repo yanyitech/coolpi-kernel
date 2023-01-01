@@ -1,0 +1,1 @@
+root=LABEL=writable rw rootfstype=ext4 console=ttyS0,115200n81 quiet splash plymouth.ignore-serial-consoles vt.global_cursor_default=1 irqchip.gicv3_pseudo_nmi=0 net.ifnames=0
