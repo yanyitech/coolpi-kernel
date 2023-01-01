@@ -5206,7 +5206,7 @@
 		dmas = <&dmac0 14>, <&dmac0 15>;
 		dma-names = "tx", "rx";
 		pinctrl-names = "default";
-		pinctrl-0 = <&spi0m0_cs0 &spi0m0_cs1 &spi0m0_pins>;
+		pinctrl-0 = <&spi0m2_cs0 &spi0m2_cs1 &spi0m2_pins>;
 		num-cs = <2>;
 		status = "disabled";
 	};

@@ -1101,7 +1101,7 @@
 				avdd-supply = <&vcc_mipidphy0>;
 				rockchip,camera-module-index = <1>;
 				rockchip,camera-module-facing = "front";
-				rockchip,camera-module-name = "THDS11073_Largan_CAM0";
+				rockchip,camera-module-name = "THDS11073LarganCAM0";
 				rockchip,camera-module-lens-name = "40122a1";
 
                 port {
