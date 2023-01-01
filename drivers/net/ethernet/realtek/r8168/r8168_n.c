@@ -687,6 +687,48 @@ static inline void eth_hw_addr_random(struct net_device *dev)
 }
 #endif
 
+static unsigned char phyaddr[12] = {0};
+
+#include <linux/ctype.h>
+
+#ifndef MODULE
+static int __init rtlmac_cmdline_opt(char *str)
+{ 
+	char *opt;
+	char *p = NULL;
+	int i = 0;
+	int j = 0;
+	int len = 0;
+	unsigned char temp;
+
+	if (!str || !*str)
+		return -EINVAL;
+
+	while ((opt = strsep(&str, ",")) != NULL) {
+		if (!strncmp(opt, "ethaddr:", 8)) {
+			len = strlen(opt+8);
+			if(len > 17)
+				len = 17;
+			p = opt + 8;
+			for(i = 0; i< len; i++) {
+				temp = tolower(p[i]);
+				if(temp == ':')
+					continue;
+				if(temp > '9')
+					phyaddr[j] = temp - 'a' + 10;
+				else 
+					phyaddr[j] = temp - 0x30;
+				j++;
+			}
+		}
+	}
+
+	return 0;
+}
+
+__setup("rtleth=", rtlmac_cmdline_opt);
+#endif /* MODULE */
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 #undef ethtool_ops
 #define ethtool_ops _kc_ethtool_ops
@@ -24060,6 +24102,7 @@ rtl8168_get_mac_address(struct net_device *dev)
 {
         struct rtl8168_private *tp = netdev_priv(dev);
         int i;
+        int j;
         u8 mac_addr[MAC_ADDR_LEN];
 
         for (i = 0; i < MAC_ADDR_LEN; i++)
@@ -24114,6 +24157,12 @@ rtl8168_get_mac_address(struct net_device *dev)
                                 *pUshort = rtl8168_eeprom_read_sc(tp, 9);
                         }
                 }
+        }
+
+        j = 0;
+        for (i = 0; i < MAC_ADDR_LEN; i++) {
+                mac_addr[i] = (phyaddr[j] << 4) | phyaddr[j+1];
+                j += 2;
         }
 
         if (!is_valid_ether_addr(mac_addr)) {
@@ -25491,6 +25540,7 @@ rtl8168_init_one(struct pci_dev *pdev,
         static int board_idx = -1;
 
         int rc;
+        int value;
 
         assert(pdev != NULL);
         assert(ent != NULL);
@@ -25651,6 +25701,11 @@ rtl8168_init_one(struct pci_dev *pdev,
         printk(KERN_INFO "%s: This product is covered by one or more of the following patents: US6,570,884, US6,115,776, and US6,327,625.\n", MODULENAME);
 
         rtl8168_disable_rxdvgate(dev);
+
+        value = RTL_R8(tp, 0x18);
+        value = RTL_R8(tp, 0x19);
+        RTL_W8(tp, 0x18,0x70);
+        RTL_W8(tp, 0x19,0x08);
 
         device_set_wakeup_enable(&pdev->dev, tp->wol_enabled);
 
