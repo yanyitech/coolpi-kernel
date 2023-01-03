@@ -162,3 +162,4 @@ x509.genkey
 sphinx_*/
 
 /out_modules
+/Image

@@ -7,6 +7,6 @@ fatlabel coolpi-boot.img system-boot
 mkdir -p .temp
 mount coolpi-boot.img .temp/
 cp out/* .temp/
-cp boot/* .temp/
+cp -r boot/* .temp/
 umount .temp
 echo "Complete..."

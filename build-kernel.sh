@@ -15,6 +15,7 @@ make ARCH=arm64 LOCALVERSION= rk3588s_cp4b_defconfig
 make ARCH=arm64 LOCALVERSION= -j8
 make ARCH=arm64 LOCALVERSION= modules -j8
 cp arch/arm64/boot/Image.gz vmlinuz
+cp arch/arm64/boot/Image Image
 cp arch/arm64/boot/dts/rockchip/rk3588s-cp4.dtb .
 
 rm -rf out_modules
@@ -35,6 +36,7 @@ cd $K_SRC
 rm -rf out
 mkdir -p out
 cp vmlinuz out/
+cp Image out/
 cp rk3588s-cp4.dtb out/
 cp modules.tar.gz out/
 
