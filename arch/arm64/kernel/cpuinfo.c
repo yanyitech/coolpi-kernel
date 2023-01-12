@@ -148,6 +148,7 @@ static int c_show(struct seq_file *m, void *v)
 	bool compat = personality(current->personality) == PER_LINUX32 ||
 		      is_compat_task();
 
+	seq_printf(m, "Machine model\t: YANYI RK3588(S) CoolPi 4B Board\n");
 	for_each_online_cpu(i) {
 		struct cpuinfo_arm64 *cpuinfo = &per_cpu(cpu_data, i);
 		u32 midr = cpuinfo->reg_midr;
@@ -161,6 +162,9 @@ static int c_show(struct seq_file *m, void *v)
 		if (compat)
 			seq_printf(m, "model name\t: ARMv8 Processor rev %d (%s)\n",
 				   MIDR_REVISION(midr), COMPAT_ELF_PLATFORM);
+		else
+			seq_printf(m, "model name\t: Rockchip RK3588(S) CoolPi\n");
+
 
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
 			   loops_per_jiffy / (500000UL/HZ),
