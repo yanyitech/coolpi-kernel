@@ -68,9 +68,13 @@ distribute without commercial permission.
 #define FXGMAC_FPGA_VER_B4_0507		0
 #define FXGMAC_FPGA_VER_20210507	1
 
+#ifdef UBOOT
+#define FXGMAC_DRV_NAME                     "yt6801"
+#else
 #define FXGMAC_DRV_NAME                     "fuxi-gmac"
+#endif
 
-#define FXGMAC_DRV_VERSION                  "1.0.15"
+#define FXGMAC_DRV_VERSION                  "1.0.21"
 
 #define FXGMAC_DRV_DESC                     "Motorcomm FUXI GMAC Driver"
 
@@ -288,6 +292,9 @@ distribute without commercial permission.
 #define FXGMAC_STD_PACKET_MTU           1500
 #define FXGMAC_JUMBO_PACKET_MTU         9014
 
+#define NIC_MAX_TCP_OFFLOAD_SIZE        7300
+#define NIC_MIN_LSO_SEGMENT_COUNT       2
+
 /* power management */
 #define FXGMAC_POWER_STATE_DOWN         0
 #define FXGMAC_POWER_STATE_UP           1
@@ -390,7 +397,21 @@ typedef enum
 
 #define FXGMAC_GET_DESC_DATA(ring, idx) ((ring)->desc_data_head + (idx))
 #define FXGMAC_GET_ENTRY(x, size) ((x + 1) & (size - 1))
-#if defined(LINUX) || defined(UEFI_AARCH64)
+#if defined(LINUX) || defined(UEFI_AARCH64) ||defined(UEFI_LOONGARCH64) || defined(UBOOT)
+
+#if defined(UBOOT)
+/* write 32bit register */
+#define writereg(pAdapter, val, addr) (writel(val, addr))
+/* read 32bit register */
+#define readreg(pAdapter, addr) (readl(addr))
+/* read from 32bit register via pci config space */
+#define cfg_r32(_pdata, reg, pdat) dm_pci_read_config32((_pdata)->pdev, (reg), (u32 *)(pdat));
+/* write to 32bit register via pci config space */
+#define cfg_w32(_pdata, reg, val) dm_pci_write_config32((_pdata)->pdev, (reg), (u32)(val))
+/* usleep */
+#define usleep_range_ex(pAdapter, a, b) (udelay(b))
+#endif
+
 #if defined(LINUX) 
  /* read from 8bit register via pci config space */
 #define cfg_r8(_pdata, reg, pdat) pci_read_config_byte((_pdata)->pdev, (reg), (u8 *)(pdat))
@@ -779,6 +800,8 @@ struct fxgmac_channel {
     void __iomem* dma_regs;
 #elif defined(_WIN32) || defined(_WIN64)
     u8 __iomem* dma_regs;
+#elif defined(UBOOT)
+    u8 * dma_regs;
 #else
     u32 __iomem dma_regs;
 #endif
@@ -794,13 +817,12 @@ struct fxgmac_channel {
     char dma_irq_name_tx[IFNAMSIZ + 32];
 
     /* Netdev related settings */
-    //struct napi_struct napi_tx;
-    int flag_napi_tx; //0: ch0 rx irq; 1: ch0 tx
+    struct napi_struct napi_tx;
 #endif	
 
 #ifdef LINUX
     /* Netdev related settings */
-    struct napi_struct napi;
+    struct napi_struct napi_rx;
     struct timer_list tx_timer;
 
 #ifdef FXGMAC_TX_HANG_TIMER_EN
@@ -881,6 +903,7 @@ struct fxgmac_hw_ops {
     int (*dev_read)(struct fxgmac_channel* channel);
 
     int (*set_mac_address)(struct fxgmac_pdata* pdata, u8* addr);
+    int (*set_mac_hash)(struct fxgmac_pdata* pdata);
     int (*config_rx_mode)(struct fxgmac_pdata* pdata);
     int (*enable_rx_csum)(struct fxgmac_pdata* pdata);
     int (*disable_rx_csum)(struct fxgmac_pdata* pdata);
@@ -1010,6 +1033,8 @@ struct fxgmac_hw_ops {
     void (*clean_cable_loopback)(struct fxgmac_pdata* pdata);
     void (*disable_phy_sleep)(struct fxgmac_pdata* pdata);
     void (*enable_phy_sleep)(struct fxgmac_pdata* pdata);
+    void (*phy_green_ethernet)(struct fxgmac_pdata* pdata);
+    void (*phy_eee_feature)(struct fxgmac_pdata* pdata);
 #endif
     int (*get_ephy_state)(struct fxgmac_pdata* pdata);
     int (*write_ephy_reg)(struct fxgmac_pdata* pdata, u32 val, u32 data);
@@ -1144,12 +1169,35 @@ struct ext_command_data {
 
 typedef struct per_regisiter_info   PER_REG_INFO;
 typedef struct ext_command_data     CMD_DATA;
-
+#ifdef UBOOT
+typedef enum _media_nic_connect_state
+{
+    NIC_CONNECT_STATE_UNKNOWN,
+    NIC_CONNECT_STATE_CONNECTED,
+    NIC_CONNECT_STATE_DISCONNECTED
+}nic_connect_state;
+#endif
 struct fxgmac_pdata {
     struct net_device               *netdev;
     struct device                   *dev;
+#ifdef UBOOT
+    struct udevice                  *pdev;
+#else
     struct pci_dev                  *pdev;
+#endif
     void                            *pAdapter;
+    
+#ifdef UBOOT
+    const char *                    name;
+    u32                             card_num;
+
+    /* pcie info */
+    u16                             pci_devid;
+    u16                             pci_venid;
+    u8                              pci_revid;
+    u16                             SubVendorID;
+    u16                             SubSystemID;
+#endif
 
     struct fxgmac_hw_ops            hw_ops;
     struct fxgmac_desc_ops          desc_ops;
@@ -1183,6 +1231,9 @@ struct fxgmac_pdata {
 #elif defined(_WIN32) || defined(_WIN64)
     u8 __iomem* mac_regs;
     u8 __iomem* base_mem;
+#elif defined(UBOOT)
+    void *                          mac_regs;
+    void *                          base_mem; 
 #else
     u32 __iomem                      mac_regs;
     u32 __iomem                      base_mem;
@@ -1204,6 +1255,24 @@ struct fxgmac_pdata {
     unsigned int                    rx_desc_count;
     unsigned int                    tx_q_count;
     unsigned int                    rx_q_count;
+    
+#ifdef UBOOT    
+    /* dma descriptor */
+    u32                             tx_tail;
+    u32                             rx_tail;
+    struct fxgmac_dma_desc *        tx_desc_list; 
+    struct fxgmac_dma_desc *        rx_desc_list; 
+    u8*                             rx_buffer;
+    
+    /* Rings for Tx/Rx on a DMA channel */
+    struct fxgmac_channel *         tx_channel;
+    struct fxgmac_channel *         rx_channel;
+
+    /* link info */
+    nic_connect_state               phy_link;
+    //uint16_t                        LinkSpeed;     // actual link speed setting
+    //uint8_t                         Duplex;        // Duplex set
+#endif
 
     /* Tx/Rx common settings */
     unsigned int                    pblx8;
@@ -1260,6 +1329,7 @@ struct fxgmac_pdata {
 
     /* Interrupt Moderation */
     unsigned int                    intr_mod;
+	unsigned int                    intr_mod_timer;
 
     /* Device interrupt number */
     int                             dev_irq;
@@ -1537,7 +1607,7 @@ void fxgmac_suspend(struct fxgmac_pdata* pdata);
 
 #define netif_msg_drv(pdata) FALSE
 #define printk(x,...) do { } while (0)
-#define DPRINTK(x,...) do { } while (0)
+#define DPRINTK(x,...) do { } while (0)//DBGPRINT(MP_LOUD,(x,__VA_ARGS__))
 
 #define netif_dbg(a, b, c, fmt, ...) \
     DBGPRINT(MP_TRACE, ("[%s,%d]:" fmt, __func__, __LINE__, __VA_ARGS__))
@@ -1566,6 +1636,36 @@ void fxgmac_suspend(struct fxgmac_pdata* pdata);
 #define FXGMAC_PR(x...)		do { } while (0)
 #define DPRINTK(x...)
 #endif
+
+#elif defined(UBOOT)
+
+#define FXGMAC_ERR(NIC, fmt, args...) \
+	printf("YT6801: %s: ERROR: " fmt, (NIC)->name ,##args)
+#define DEBUGOUT(fmt, args...)	printf(fmt ,##args)
+
+#ifdef DBG
+#define FXGMAC_DEBUG(NIC, fmt, args...) \
+	printf("YT6801: %s: DEBUG: " fmt, (NIC)->name ,##args)
+#define DEBUGFUNC()		printf("%s\n", __func__);
+#define DPRINTK(fmt, args...) printf(fmt ,##args)
+#define DBGPRINT(Level, Fmt) printf Fmt
+#define FXGMAC_PR(fmt, args...) DBGPRINT(MP_TRACE, (fmt,##args))
+#else
+#define FXGMAC_DEBUG(HW, args...)	do { } while (0)
+#define DEBUGFUNC()		do { } while (0)
+#define FXGMAC_PR(fmt, ...) do { } while (0)
+#define DPRINTK(fmt, args...) do {} while (0)
+#define DBGPRINT(Level, Fmt)
+#endif
+
+#define netif_dbg(a, b, c, fmt, ...) 
+#define netif_info(a, b, c, fmt, ...) 
+#define netdev_dbg(a, fmt, ...) 
+#define netdev_err(a, fmt, ...) 
+#define netdev_alert(a, fmt, ...) 
+
+#define netif_msg_drv(pdata) false
+//#define DbgPrintF(level,  fmt, ...)
 
 #else
 //PXE

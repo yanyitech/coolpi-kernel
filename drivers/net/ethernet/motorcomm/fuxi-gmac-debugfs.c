@@ -597,10 +597,9 @@ void fxgmac_dbg_init(struct fxgmac_pdata *pdata)
     const char file_prefix[] = "fuxi_";
     char file_path[50];
     char file_name[8];
-    struct file *filp = NULL;
     
     /* init file_path */
-    memset(file_path, '\0', sizeof(file_name));
+    memset(file_path, '\0', sizeof(file_path));
     memcpy(file_path, debug_path, sizeof(debug_path));
 
 	for(i = 0; i < DF_MAX_NIC_NUM; i++)
@@ -621,13 +620,13 @@ void fxgmac_dbg_init(struct fxgmac_pdata *pdata)
         //DPRINTK("FXG: file_path is %s", file_path);
 
         /* whether file exist */
-        filp = filp_open(file_path, O_RDONLY, 0);
-        if(IS_ERR(filp))
+        pdata->fxgmac_dbg_root = debugfs_lookup(file_name, NULL);
+        if (!pdata->fxgmac_dbg_root)
         {
             /* create file */
 	        pdata->fxgmac_dbg_root = debugfs_create_dir(file_name, NULL);
-	        if (pdata->fxgmac_dbg_root == NULL)
-		        DPRINTK("fxgmac init of debugfs failed\n");
+            if (IS_ERR(pdata->fxgmac_dbg_root))
+                DPRINTK("fxgmac init of debugfs failed\n");
 
             break;
         }

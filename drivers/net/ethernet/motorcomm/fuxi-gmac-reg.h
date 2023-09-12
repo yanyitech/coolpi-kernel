@@ -34,6 +34,9 @@ distribute without commercial permission.
 #define MAC_PMT_STA                             0x00c0
 #define MAC_RWK_PAC                             0x00c4 // This is the FIFO address, the pointer will be increased automatically after writting.
 #define MAC_LPI_STA                             0x00d0
+#define MAC_LPI_CONTROL                         0x00d4
+#define MAC_LPI_TIMER                           0x00d8
+#define MAC_MS_TIC_COUNTER                      0x00dc
 #define MAC_AN_SR                               0x00E4
 #define MAC_PHYIF_STA                           0x00F8
 #define MAC_VR                                  0x0110
@@ -203,6 +206,29 @@ distribute without commercial permission.
 #define MAC_RFCR_UP_LEN			1
 #define MAC_RQC0R_RXQ0EN_POS		0
 #define MAC_RQC0R_RXQ0EN_LEN		2
+#define MAC_LPIIE_POS           5
+#define MAC_LPIIE_LEN           1
+#define MAC_LPIATE_POS          20
+#define MAC_LPIATE_LEN          1
+#define MAC_LPITXA_POS          19
+#define MAC_LPITXA_LEN          1
+#define MAC_PLS_POS             17
+#define MAC_PLS_LEN             1
+#define MAC_LPIEN_POS           16
+#define MAC_LPIEN_LEN           1
+#define MAC_LPI_ENTRY_TIMER     8
+#define MAC_LPIET_POS           3
+#define MAC_LPIET_LEN           17
+#define MAC_TWT_TIMER           0x10
+#define MAC_TWT_POS             0
+#define MAC_TWT_LEN             16
+#define MAC_LST_TIMER           2
+#define MAC_LST_POS             16
+#define MAC_LST_LEN             10
+#define MAC_MS_TIC              24
+#define MAC_MS_TIC_POS          0
+#define MAC_MS_TIC_LEN          12
+
 /* RSS table */
 #define MAC_RSSAR_ADDRT_POS		2
 #define MAC_RSSAR_ADDRT_LEN		1
@@ -667,12 +693,18 @@ distribute without commercial permission.
 #define DMA_MR_QUREAD_POS              19
 #define DMA_MR_QUREAD_LEN               1
 
+#define DMA_SBMR_EN_LPI_POS         31
+#define DMA_SBMR_EN_LPI_LEN         1
+#define DMA_SBMR_LPI_XIT_PKT_POS    30
+#define DMA_SBMR_LPI_XIT_PKT_LEN    1
 #define DMA_SBMR_WR_OSR_LMT_POS		24
 #define DMA_SBMR_WR_OSR_LMT_LEN		6
 #define DMA_SBMR_RD_OSR_LMT_POS		16
 #define DMA_SBMR_RD_OSR_LMT_LEN	        8
 #define DMA_SBMR_EAME_POS		11
 #define DMA_SBMR_EAME_LEN		1
+#define DMA_SBMR_AALE_POS       10
+#define DMA_SBMR_AALE_LEN       1
 #define DMA_SBMR_BLEN_4_POS		1
 #define DMA_SBMR_BLEN_4_LEN		1
 #define DMA_SBMR_BLEN_8_POS		2
@@ -863,10 +895,14 @@ distribute without commercial permission.
 
 #define RX_NORMAL_DESC1_WB_IPCE_POS			7  // IP Payload Error.
 #define RX_NORMAL_DESC1_WB_IPCE_LEN			1
+#define RX_NORMAL_DESC1_WB_IPV6_POS			5  // IPV6 Header Present.
+#define RX_NORMAL_DESC1_WB_IPV6_LEN			1
+#define RX_NORMAL_DESC1_WB_IPV4_POS			4  // IPV4 Header Present.
+#define RX_NORMAL_DESC1_WB_IPV4_LEN			1
 #define RX_NORMAL_DESC1_WB_IPHE_POS			3  // IP Header Error.
 #define RX_NORMAL_DESC1_WB_IPHE_LEN			1
-#define RX_NORMAL_DESC1_WB_PT_POS			0 //
-#define RX_NORMAL_DESC1_WB_PT_LEN			3
+#define RX_NORMAL_DESC1_WB_PT_POS           0 //
+#define RX_NORMAL_DESC1_WB_PT_LEN           3
 
 #define RX_NORMAL_DESC2_WB_HF_POS           18 // Hash Filter Status. When this bit is set, it indicates that the packet passed the MAC address hash filter
 #define RX_NORMAL_DESC2_WB_HF_LEN           1
@@ -876,6 +912,9 @@ distribute without commercial permission.
 
 #define RX_NORMAL_DESC3_WB_RS0V_POS	        25 // When this bit is set, it indicates that the status in RDES0 is valid and it is written by the DMA.
 #define RX_NORMAL_DESC3_WB_RS0V_LEN         1
+#define RX_NORMAL_DESC3_WB_CE_POS	        24 // When this bit is set, it indicates that a Cyclic Redundancy Check (CRC) Error occurred on the
+//received packet.This field is valid only when the LD bit of RDES3 is set.
+#define RX_NORMAL_DESC3_WB_CE_LEN           1
 
 #define RX_DESC3_L34T_IPV4_TCP			1
 #define RX_DESC3_L34T_IPV4_UDP			2
@@ -1200,6 +1239,14 @@ distribute without commercial permission.
 #define REG_MII_EXT_REG_TX_OS_BAD                                         0xB4
 #define REG_MII_EXT_REG_TX_FRAGMENT                                       0xB5
 #define REG_MII_EXT_REG_TX_NOSFD                                          0xB6
+#define REG_MII_EXT_REG_PMA_DBG0_ADC                                      0x13
+#define REG_MII_EXT_ENABLE_GIGA_POWER_SAVING_FOR_SHORT_CABLE              0x3538
+#define REG_MII_EXT_REG_CLD_REG0                                          0x3A0
+#define REG_MII_EXT_ENABLE_CLD_NP_WP                                      0xEB24
+#define REG_MII_EXT_REG_CLD_REG1                                          0x3CC
+#define REG_MII_EXT_ENABLE_CLD_GT_HT_BT                                   0x7001
+#define REG_MMD_EEE_ABILITY_REG                                           0x3C
+#define REG_MMD_EEE_ABILITY_VALUE                                         0x06
 
 /* Below registers don't belong to GMAC, it has zero offset, not 0x2000 offset. mem_base + REG_XXX. */
 /***When issue happens, driver write this register to trigger pcie sniffer. ***/
@@ -1358,6 +1405,8 @@ system exit idle state, send out one LTR exit message.
 #define  LPW_CTRL                               0x1188
 #define  LPW_CTRL_L1SS_EN_POS                   22
 #define  LPW_CTRL_L1SS_EN_LEN                   1
+#define  LPW_CTRL_ASPM_L1_CPM_POS               19  /*L1.CPM mode enable bit. Default 0,set as 1 enable this mode. clkreq pin need to connect RC*/
+#define  LPW_CTRL_ASPM_L1_CPM_LEN               1
 #define  LPW_CTRL_ASPM_L0S_EN_POS               17
 #define  LPW_CTRL_ASPM_L0S_EN_LEN               1
 #define  LPW_CTRL_ASPM_L1_EN_POS                16
@@ -1366,17 +1415,17 @@ system exit idle state, send out one LTR exit message.
 #define  LPW_CTRL_ASPM_LPW_EN_LEN               1
 #define  LPW_CTRL_SYS_CLK_125_SEL_POS           8  /* system 125M select: 125M or 62.5MHz. Default: 125MHz.*/
 #define  LPW_CTRL_SYS_CLK_125_SEL_LEN           1
-#define  LPW_CTRL_PCIE_RADM_CG_EN_POS           5  /* clock gating enable bit of PCIe Radm clock. Default 1’b0; set as 1’b1, enable gating.*/
+#define  LPW_CTRL_PCIE_RADM_CG_EN_POS           5  /* clock gating enable bit of PCIe Radm clock. Default 1; set as 1, enable gating.*/
 #define  LPW_CTRL_PCIE_RADM_CG_EN_LEN           1
-#define  LPW_CTRL_PCIE_CORE_CG_EN_POS           4  /* clock gating enable bit of PCIe Core clock. Default 1’b0; set as 1’b1, enable gating.*/
+#define  LPW_CTRL_PCIE_CORE_CG_EN_POS           4  /* clock gating enable bit of PCIe Core clock. Default 1; set as 1, enable gating.*/
 #define  LPW_CTRL_PCIE_CORE_CG_EN_LEN           1
-#define  LPW_CTRL_PCIE_AXI_CG_EN_POS            3  /* clock gating enable bit of PCIe AXI clock.Default 1’b0; set as 1’b1, enable gating.*/
+#define  LPW_CTRL_PCIE_AXI_CG_EN_POS            3  /* clock gating enable bit of PCIe AXI clock.Default 1; set as 1, enable gating.*/
 #define  LPW_CTRL_PCIE_AXI_CG_EN_LEN            1
-#define  LPW_CTRL_GMAC_AXI_CG_EN_POS            2  /* clock gating enable bit of GMAC AXI clock. Default 1’b0; set as 1’b1, enable gating.*/
+#define  LPW_CTRL_GMAC_AXI_CG_EN_POS            2  /* clock gating enable bit of GMAC AXI clock. Default 1; set as 1, enable gating.*/
 #define  LPW_CTRL_GMAC_AXI_CG_EN_LEN            1
-#define  LPW_CTRL_MDIO2APB_CG_EN_POS            1  /* clock gating enable bit of MDIO2APB, default 1’b0. Set as 1’b1, enable clock gating feature. */
+#define  LPW_CTRL_MDIO2APB_CG_EN_POS            1  /* clock gating enable bit of MDIO2APB, default 1. Set as 1, enable clock gating feature. */
 #define  LPW_CTRL_MDIO2APB_CG_EN_LEN            1
-#define  LPW_CTRL_OTP_CLK_ON_POS                0  /* Turn on before SW OTP operation, default 1’b1. */
+#define  LPW_CTRL_OTP_CLK_ON_POS                0  /* Turn on before SW OTP operation, default 1. */
 #define  LPW_CTRL_OTP_CLK_ON_LEN                1
 
 #define  MSI_PBA_REG                            0x1300

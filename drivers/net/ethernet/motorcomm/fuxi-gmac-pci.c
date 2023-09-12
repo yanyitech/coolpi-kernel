@@ -19,7 +19,6 @@ distribute without commercial permission.
 #include "fuxi-gmac.h"
 #include "fuxi-gmac-reg.h"
 
-#define PCI_DEVICE_FUXI_GMAC 0x7302
 
 #ifdef CONFIG_PCI_MSI
 u32 pcidev_int_mode; // for msix

@@ -509,6 +509,11 @@ DbgPrintAddress(
 
 #elif defined(LINUX)
 
+#elif defined(UBOOT)
+#include "fuxi-dbg.h"
+#ifdef DBG
+u32   MPDebugLevel = MP_LOUD;
+#endif
 #else
 	
 #endif

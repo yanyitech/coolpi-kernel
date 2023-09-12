@@ -238,6 +238,24 @@ DumpLine(
 #define fxgmac_dump_buffer(_skb, _len, _tx_rx)
 #define DumpLine(_p, _cbLine, _fAddress, _ulGroup )
 
+#elif defined(UBOOT)
+#ifdef UBOOT_DEBUG
+extern u32   MPDebugLevel;
+#define NIC_DBG_STRING                  "YT6801: "
+#define STR_FORMAT      "%s"
+#define PTR_FORMAT      "%x"
+//#define DBGPRINT(Level, Fmt) printf Fmt
+#define DbgPrintF(Level, fmt, args...)                                  \
+{                                                                   \
+    if (Level <= MPDebugLevel)                                      \
+    {                                                               \
+        printf(NIC_DBG_STRING fmt,##args);                                \
+        printf("\n");                                               \
+    }                                                               \
+}
+#else
+#define DbgPrintF(Level, ...)                                       
+#endif
 #else
 
 //#pragma warning(disable:4100) //warning C4100: 'xxx': unreferenced formal parameter

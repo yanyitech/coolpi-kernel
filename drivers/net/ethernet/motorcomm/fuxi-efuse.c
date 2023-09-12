@@ -16,7 +16,8 @@ distribute without commercial permission.
 #include "nic_sw.h"
 #elif defined(LINUX)
 #elif defined(_WIN32) || defined(_WIN64)
-
+#elif defined(UBOOT)
+#include "fuxi-dbg.h"
 #else
 #endif
 

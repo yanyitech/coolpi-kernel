@@ -18,7 +18,6 @@ distribute without commercial permission.
 
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 
 static int debug = 16;
 module_param(debug, int, 0644);
@@ -30,10 +29,56 @@ u32 default_msg_level = 0;
                       NETIF_MSG_IFUP);
 */
 
+#define MAC_ADDR_LEN    6
+
+static unsigned char y_phyaddr[12] = {0};
+
 static unsigned char dev_addr[6] = {0, 0x55, 0x7b, 0xb5, 0x7d, 0xf7};
+
+#include <linux/ctype.h>
+
+#ifndef MODULE
+static int __init ytmac_cmdline_opt(char *str)
+{
+    char *opt;
+    char *p = NULL;
+    int i = 0;
+    int j = 0;
+    int len = 0;
+    unsigned char temp;
+
+    if (!str || !*str)
+        return -EINVAL;
+
+    while ((opt = strsep(&str, ",")) != NULL) {
+        if (!strncmp(opt, "ethaddr:", 8)) {
+            len = strlen(opt+8);
+            if(len > 17)
+                len = 17;
+            p = opt + 8;
+            for(i = 0; i< len; i++) {
+                temp = tolower(p[i]);
+                if(temp == ':')
+                    continue;
+                if(temp > '9')
+                    y_phyaddr[j] = temp - 'a' + 10;
+                else
+                    y_phyaddr[j] = temp - 0x30;
+                j++;
+            }
+        }
+    }
+
+    return 0;
+}
+
+__setup("rtleth=", ytmac_cmdline_opt);
+#endif /* MODULE */
 
 static void fxgmac_read_mac_addr(struct fxgmac_pdata *pdata)
 {
+    int i = 0;
+    int j = 0;
     struct net_device *netdev = pdata->netdev;
     DPRINTK("read mac from eFuse\n");
 
@@ -43,18 +88,26 @@ static void fxgmac_read_mac_addr(struct fxgmac_pdata *pdata)
         /* Currently it uses a static mac address for test */
         memcpy(pdata->mac_addr, dev_addr, netdev->addr_len);
     }
+
+    // set mac addr from cmdline
+    j = 0;
+    for (i = 0; i < MAC_ADDR_LEN; i++) {
+        dev_addr[i] = (y_phyaddr[j] << 4) | y_phyaddr[j+1];
+        j += 2;
+	printk("%02x", dev_addr[i]);
+    }
+    memcpy(pdata->mac_addr, dev_addr, netdev->addr_len);
 }
 
 static void fxgmac_default_config(struct fxgmac_pdata *pdata)
 {
     pdata->tx_osp_mode = DMA_OSP_ENABLE;
     pdata->tx_sf_mode = MTL_TSF_ENABLE;
-    pdata->rx_sf_mode = MTL_RSF_ENABLE;//MTL_RSF_DISABLE 20210514
+    pdata->rx_sf_mode = MTL_RSF_DISABLE;//MTL_RSF_DISABLE 20210514
     pdata->pblx8 = DMA_PBL_X8_ENABLE;//DMA_PBL_X8_ENABLE 20210514
     pdata->tx_pbl = DMA_PBL_32;
-    pdata->rx_pbl = DMA_PBL_4;//DMA_PBL_32 20210514
-    //yzhang pdata->tx_threshold = MTL_TX_THRESHOLD_128;
-    pdata->tx_threshold = MTL_TX_THRESHOLD_32;
+    pdata->rx_pbl = DMA_PBL_32;//DMA_PBL_32 20210514
+    pdata->tx_threshold = MTL_TX_THRESHOLD_128;
     pdata->rx_threshold = MTL_RX_THRESHOLD_128;
 #if 1
     pdata->tx_pause = 1;
@@ -66,6 +119,10 @@ static void fxgmac_default_config(struct fxgmac_pdata *pdata)
 #if FXGMAC_RSS_FEATURE_ENABLED
     pdata->rss = 1;
 #endif
+    // open interrupt moderation default
+    pdata->intr_mod = 1;
+    pdata->crc_check = 1;
+
     //yzhang, set based on phy status. pdata->phy_speed = SPEED_1000;
     pdata->sysclk_rate = FXGMAC_SYSCLOCK;
     pdata->phy_autoeng = AUTONEG_ENABLE; // default to autoneg
@@ -241,12 +298,7 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
     pdata->rss_options = FXGMAC_SET_REG_BITS(
         pdata->rss_options,
         MAC_RSSCR_UDP4TE_POS,
-        MAC_RSSCR_UDP4TE_LEN, 0);
-#if 0   // yzhang disabled this debug info
-    for (i = 0; i < FXGMAC_RSS_MAX_TABLE_SIZE; i++) {
-        DPRINTK("rss_table[%d]:0x%x\n", i, pdata->rss_table[i]);
-    }
-#endif
+        MAC_RSSCR_UDP4TE_LEN, 1);
 
     /* config MTU supported, 20210726 */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
@@ -259,9 +311,6 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
     */
 
     DPRINTK("rss_options:0x%x\n", pdata->rss_options);
-    //DPRINTK("TODO: RSS...need to write rss options to HW reg\n");
-    //need to write options to HW,20210608
-    //write HW option is implemented in fxgmac_write_rss_options(pdata), it is called in fxgmac_enable_rss();
 
     /* Set device operations */
     netdev->netdev_ops = fxgmac_get_netdev_ops();
@@ -314,7 +363,7 @@ int fxgmac_init(struct fxgmac_pdata *pdata, bool save_private_reg)
 
     /* Use default watchdog timeout */
     netdev->watchdog_timeo = msecs_to_jiffies(5000);//refer to sunxi-gmac, 5s
-    //netdev->watchdog_timeo = 0;
+    netdev->gso_max_size = NIC_MAX_TCP_OFFLOAD_SIZE;
 
     /* Tx coalesce parameters initialization */
     pdata->tx_usecs = FXGMAC_INIT_DMA_TX_USECS;
