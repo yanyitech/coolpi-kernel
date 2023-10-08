@@ -171,14 +171,20 @@
 			70000	5
 		>;
 	};
-
-	hall_sensor: hall-mh248 {
-		compatible = "hall-mh248";
+	
+	gpio-key-lid {
+		compatible = "gpio-keys";
 		pinctrl-names = "default";
 		pinctrl-0 = <&mh248_irq_gpio>;
-		irq-gpio = <&gpio0 RK_PB0 IRQ_TYPE_EDGE_BOTH>;
-		hall-active = <1>;
-		status = "okay";
+
+		lid {
+			debounce-interval = <20>;
+			gpios = <&gpio0 RK_PB0 GPIO_ACTIVE_LOW>;
+			label = "Lid";
+			linux,code = <SW_LID>;
+			linux,input-type = <EV_SW>;
+			wakeup-source;
+		};
 	};
 
 	panel-edp1 {
