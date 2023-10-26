@@ -687,6 +687,16 @@
 			reg = <1>;
 			remote-endpoint = <&dp_altmode_mux>;
 		};
+		
+		usbdp_phy0_orientation_switch1: endpoint@2 {
+			reg = <2>;
+			remote-endpoint = <&usbc0_orien_sw1>;
+		};
+
+		usbdp_phy0_dp_altmode_mux1: endpoint@3 {
+			reg = <3>;
+			remote-endpoint = <&dp_altmode_mux1>;
+		};
 	};
 };
 
@@ -712,6 +722,10 @@
 		dwc3_0_role_switch: endpoint@0 {
 			reg = <0>;
 			remote-endpoint = <&usbc0_role_sw>;
+		};
+		dwc3_0_role_switch1: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&usbc1_role_sw>;
 		};
 	};
 };
@@ -956,6 +970,100 @@
 		status = "okay";
 	};
 };
+
+&i2c4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c4m3_xfer>;
+
+	Coulometer: cw2015@62 {
+		compatible = "cellwise,cw2015";
+		reg = <0x62>;
+
+		cellwise,battery-profile = /bits/ 8 <
+			0x17 0x67 0x69 0x63 0x63 0x62 0x62 0x5F
+			0x52 0x73 0x4C 0x5A 0x5B 0x4B 0x42 0x3A
+			0x33 0x2D 0x29 0x28 0x2E 0x31 0x3C 0x49
+			0x2C 0x2C 0x0C 0xCD 0x30 0x51 0x50 0x66
+			0x74 0x74 0x75 0x78 0x41 0x1B 0x84 0x5F
+			0x0B 0x34 0x1C 0x45 0x89 0x92 0xA0 0x13
+			0x2C 0x55 0xAB 0xCB 0x80 0x5E 0x7B 0xCB
+			0x2F 0x00 0x64 0xA5 0xB5 0x10 0x18 0x21
+		>;
+
+		cellwise,monitor-interval-ms = <3000>;
+		monitored-battery = <&bat>;
+		power-supplies = <&charger>;
+		status = "okay";
+	};
+
+	usbc1: husb311@4e {
+		compatible = "hynetek,husb311";
+		reg = <0x4e>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <RK_PD5 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc0_int>;
+		vbus-supply = <&vcc5v0_otg>;
+		status = "okay";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				usbc1_role_sw: endpoint@0 {
+					remote-endpoint = <&dwc3_0_role_switch1>;
+				};
+			};
+		};
+		usb_con1: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			data-role = "dual";
+			power-role = "dual";
+			try-power-role = "sink";
+			op-sink-microwatt = <1000000>;
+			sink-pdos =
+				<PDO_FIXED(5000, 1000, PDO_FIXED_USB_COMM)>;
+			source-pdos =
+				<PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+
+			altmodes {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				altmode@0 {
+					reg = <0>;
+					svid = <0xff01>;
+					vdo = <0xffffffff>;
+				};
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					usbc0_orien_sw1: endpoint {
+						remote-endpoint = <&usbdp_phy0_orientation_switch1>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dp_altmode_mux1: endpoint {
+						remote-endpoint = <&usbdp_phy0_dp_altmode_mux1>;
+					};
+				};
+			};
+		};
+		
+	};
+};
+
 
 &i2c_mux {
 	status = "okay";
