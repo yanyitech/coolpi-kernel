@@ -162,7 +162,7 @@
 		cooling-max-state = <3>;
 		#cooling-cells = <2>;
 		pwms = <&pwm15 0 50000 0>;
-		cooling-levels = <0 50 100 150 200 255>;
+		cooling-levels = <1 50 100 150 200 254>;
 		rockchip,temp-trips = <
 			50000	1
 			55000	2
