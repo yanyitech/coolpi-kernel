@@ -413,6 +413,8 @@ rockchip_dp_drm_encoder_atomic_check(struct drm_encoder *encoder,
 		s->bus_format = di->bus_formats[0];
 	else
 		s->bus_format = MEDIA_BUS_FMT_RGB888_1X24;
+    if(di->bpc == 6)
+        s->bus_format = MEDIA_BUS_FMT_RGB666_1X18;
 
 	/*
 	 * The hardware IC designed that VOP must output the RGB10 video
