@@ -838,7 +838,7 @@
 };
 
 &backlight {
-	pwms = <&pwm6 0 25000 0>;
+	pwms = <&pwm6 0 100000 0>;
 	enable-gpios = <&gpio4 RK_PA3 GPIO_ACTIVE_HIGH>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&bl_en>;
