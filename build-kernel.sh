@@ -17,7 +17,7 @@ GEN_DEBS="NO"
 case "$BOARD" in
   cp4b)
     cfg="rk3588s_cp4b_defconfig"
-    dtb="rk3588s-cp4.dtb rk3588s-cp4-dsi.dtb rk3588s-cp4-sfc.dtb"
+    dtb="rk3588s-cp4.dtb rk3588s-cp4-minimal.dtb rk3588s-cp4-dsi.dtb rk3588s-cp4-sfc.dtb"
     txt_config_file="config_cp4b.txt"
     txt_extconf_file="extlinux_cp4b.conf"
     ;;
