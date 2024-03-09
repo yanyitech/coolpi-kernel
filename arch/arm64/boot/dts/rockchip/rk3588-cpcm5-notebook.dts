@@ -821,7 +821,7 @@
 };
 
 
-&vcc_1v8_s0 {
+/*&vcc_1v8_s0 {
 	/delete-property/ regulator-state-mem;
 	regulator-state-mem {
 		regulator-on-in-suspend;
@@ -835,7 +835,7 @@
 		regulator-on-in-suspend;
 		regulator-suspend-microvolt = <3300000>;
 	};
-};
+};*/
 
 &backlight {
 	pwms = <&pwm6 0 100000 0>;
