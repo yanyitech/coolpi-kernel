@@ -163,6 +163,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-tablet-v10.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-tablet-v11.dtb
 endif
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-cp4.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-cp4-hdmi-in.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-cp4-dsi.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-cp4-minimal.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588s-cp4-sfc.dtb
@@ -171,3 +172,4 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-cpcm5-evb.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-cpcm5-minipc.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-cpcm5-evb-v11.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-cpcm5-notebook.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-cpcm5-notebook-v20.dtb

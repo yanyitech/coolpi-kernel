@@ -9,8 +9,67 @@ if [ "$ARCH" == "x86_64" ]; then
     export PATH=$TOOLCHAIN_ARM64:$PATH
 fi
 export ARCH=arm64
+echo
+echo "Welcome to using Coolpi Development Board!"
+echo "------------------------------------------"
+echo "Please enter a number to select your machine"
+echo
+echo "1. cp4b"
+echo "2. cp4b-hdmi-in"
+echo "3. cm5-evb"
+echo "4. cm5-evb-v11"
+echo "5. cm5-minipc"
+echo "6. cm5-notebook"
+echo "7. cm5-notebook-v20"
+echo "8. cm5-8uart"
+echo "9. cpnano"
+echo "10. exit"
+echo
+read -rp "Enter option number: " choice
 
-BOARD=$1
+case $choice in
+    1)
+      echo "BOARD=cp4b"
+	  BOARD="cp4b"
+      ;;
+    2)
+      echo "BOARD=cp4b-hdmi-in"
+	  BOARD="cp4b-hdmi-in"
+      ;;
+    3)
+      echo "BOARD=cm5-evb"
+	  BOARD="cm5-evb"
+      ;;
+    4)
+      echo "BOARD=cm5-evb-v11"
+	  BOARD="cm5-evb-v11"
+      ;;
+    5)
+      echo "BOARD=cm5-minipc"
+	  BOARD="cm5-minipc"
+      ;;
+    6)
+      echo "BOARD=cm5-notebook"
+	  BOARD="cm5-notebook"
+      ;;
+    7)
+      echo "BOARD=cm5-notebook-v20"
+	  BOARD="cm5-notebook-v20"
+      ;;
+    8)
+      echo "BOARD=cm5-8uart"
+	  BOARD="cm5-8uart"
+      ;;
+    9)
+      echo "BOARD=cpnano"
+	  BOARD="cpnano"
+      ;;
+    10)
+      echo "exit"
+	  exit 0
+      ;;
+    *) echo "无效的选项 $REPLY";;
+  esac
 
 GEN_DEBS="NO"
 
@@ -20,6 +79,12 @@ case "$BOARD" in
     dtb="rk3588s-cp4.dtb rk3588s-cp4-minimal.dtb rk3588s-cp4-dsi.dtb rk3588s-cp4-sfc.dtb"
     txt_config_file="config_cp4b.txt"
     txt_extconf_file="extlinux_cp4b.conf"
+    ;;
+  cp4b-hdmi-in)
+    cfg="rk3588s_cp4b_defconfig"
+    dtb="rk3588s-cp4-hdmi-in.dtb"
+    txt_config_file="config_cp4b_hdmi_in.txt"
+    txt_extconf_file="extlinux_cp4b_hdmi_in.conf"
     ;;
   cm5-evb)
     cfg="rk3588_cpcm5_evb_defconfig"
@@ -45,6 +110,12 @@ case "$BOARD" in
     txt_config_file="config_cpcm5_notebook.txt"
     txt_extconf_file="extlinux_cpcm5_notebook.conf"
     ;;
+  cm5-notebook-v20)
+    cfg="rk3588_cpcm5_notebook_defconfig"
+    dtb="rk3588-cpcm5-notebook-v20.dtb"
+    txt_config_file="config_cpcm5_notebook_v20.txt"
+    txt_extconf_file="extlinux_cpcm5_notebook_v20.conf"
+    ;;
   cm5-8uart)
     cfg="rk3588_cpcm5_defconfig"
     dtb="rk3588-cpcm5-8uart.dtb"
@@ -60,7 +131,6 @@ case "$BOARD" in
     export ARCH=arm
     ;;
   *)
-    echo "Usage: $0 {cpnano|cp4b|cm5-evb|cm5-evb-v11|cm5-minipc|cm5-notebook|cm5-8uart}" >&2
     exit 0
     ;;
 esac
