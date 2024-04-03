@@ -111,7 +111,7 @@ case "$BOARD" in
     txt_extconf_file="extlinux_cpcm5_notebook.conf"
     ;;
   cm5-notebook-v20)
-    cfg="rk3588_cpcm5_notebook_defconfig"
+    cfg="rk3588_cpcm5_notebook_v20_defconfig"
     dtb="rk3588-cpcm5-notebook-v20.dtb"
     txt_config_file="config_cpcm5_notebook_v20.txt"
     txt_extconf_file="extlinux_cpcm5_notebook_v20.conf"

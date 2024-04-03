@@ -1323,7 +1323,7 @@
 };
 
 //wifi
-&pcie2x1l1 {
+&pcie2x1l0 {
 	reset-gpios = <&gpio4 RK_PA2 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc3v3_sys>;
 	pinctrl-names = "default";
@@ -1332,7 +1332,7 @@
 };
 
 &sata1 {
-	status = "okay";
+	status = "disabled";
 };
 
 //ssd
