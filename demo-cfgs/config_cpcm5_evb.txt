@@ -1,0 +1,5 @@
+bootdir=/
+kernel=vmlinuz
+initrd=initrd.img
+dtb=rk3588-cpcm5-evb.dtb
+

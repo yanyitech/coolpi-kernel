@@ -1,0 +1,5 @@
+bootdir=/
+kernel=vmlinuz
+initrd=initrd32.img
+dtb=rv1106-cpnano.dtb
+
