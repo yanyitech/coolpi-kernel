@@ -67,7 +67,7 @@
 #define GTP_HEADER_FW_UPDATE  0    // auto update fw by gtp_default_FW in gt9xx_firmware.h, function together with GTP_AUTO_UPDATE
 #define GTP_AUTO_UPDATE_CFG   0    // auto update config by .cfg file, function together with GTP_AUTO_UPDATE
 
-#define GTP_COMPATIBLE_MODE   1    /* compatible with GT9XXF */
+#define GTP_COMPATIBLE_MODE   0    /* compatible with GT9XXF */
 
 #define GTP_CREATE_WR_NODE    0
 #define GTP_ESD_PROTECT       0    // esd protection with a cycle of 2 seconds
@@ -279,8 +279,8 @@ extern u16 total_len;
 // STEP_3(optional): Specify your special config info if needed
 #if GTP_CUSTOM_CFG
   #define GTP_MAX_HEIGHT   800
-  #define GTP_MAX_WIDTH    480
-  #define GTP_INT_TRIGGER  0            // 0: Rising 1: Falling
+  #define GTP_MAX_WIDTH    1280
+  #define GTP_INT_TRIGGER  1            // 0: Rising 1: Falling
 #else
   #define GTP_MAX_HEIGHT   4096
   #define GTP_MAX_WIDTH    4096
@@ -391,7 +391,7 @@ extern u16 total_len;
                                        }while (0)
 
 //*****************************End of Part III********************************
-#define TRUE    1
-#define FALSE   0
+//#define TRUE    1
+//#define FALSE   0
 
 #endif /* _GOODIX_GT9XX_H_ */

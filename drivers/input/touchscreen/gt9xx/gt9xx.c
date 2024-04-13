@@ -91,7 +91,7 @@ void gtp_int_sync(s32 ms, struct goodix_ts_data *ts);
 static ssize_t gt91xx_config_read_proc(struct file *, char __user *, size_t, loff_t *);
 static ssize_t gt91xx_config_write_proc(struct file *, const char __user *, size_t, loff_t *);
 
-static struct proc_dir_entry *gt91xx_config_proc = NULL;
+//static struct proc_dir_entry *gt91xx_config_proc = NULL;
 static const struct file_operations config_proc_ops = {
     .owner = THIS_MODULE,
     .read = gt91xx_config_read_proc,
@@ -1112,18 +1112,18 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 
     GTP_DEBUG_FUNC();
     GTP_INFO("Guitar reset");
-    GTP_GPIO_OUTPUT(ts->rst_pin, 0);   // begin select I2C slave addr
+    //GTP_GPIO_OUTPUT(ts->rst_pin, 0);   // begin select I2C slave addr
     msleep(ms);                         // T2: > 10ms
     // HIGH: 0x28/0x29, LOW: 0xBA/0xBB
     GTP_GPIO_OUTPUT(ts->irq_pin, client->addr == 0x14);
 
     msleep(2);                          // T3: > 100us
-    GTP_GPIO_OUTPUT(ts->rst_pin, 1);
+    //GTP_GPIO_OUTPUT(ts->rst_pin, 1);
     
     msleep(6);                          // T4: > 5ms
 
     //GTP_GPIO_AS_INPUT(GTP_RST_PORT);    // end select I2C slave addr
-    gpio_direction_input(ts->rst_pin);
+    //gpio_direction_input(ts->rst_pin);
     //s3c_gpio_setpull(pin, S3C_GPIO_PULL_NONE);
 
 #if GTP_COMPATIBLE_MODE
@@ -1838,13 +1838,13 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
     	gpio_direction_input(ts->tp_select_pin);
     }
 */
-    ret = GTP_GPIO_REQUEST(ts->rst_pin, "GTP_RST_PORT");
+    /*ret = GTP_GPIO_REQUEST(ts->rst_pin, "GTP_RST_PORT");
     if (ret < 0) 
     {
         GTP_ERROR("2Failed to request GPIO:%d, ERRNO:%d",(s32)ts->rst_pin, ret);
 		GTP_GPIO_FREE(ts->rst_pin);
         return -ENODEV;
-    }
+    }*/
     
     ret = GTP_GPIO_REQUEST(ts->irq_pin, "GTP_INT_IRQ");
     if (ret < 0) 
@@ -1864,7 +1864,7 @@ static s8 gtp_request_io_port(struct goodix_ts_data *ts)
     }
 
     //GTP_GPIO_AS_INPUT(ts->rst_pin);
-    gpio_direction_input(ts->rst_pin);
+    //gpio_direction_input(ts->rst_pin);
     //s3c_gpio_setpull(pin, S3C_GPIO_PULL_NONE);
 
     gtp_reset_guitar(ts->client, 20);
@@ -2664,14 +2664,14 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	} else if (val == 911) {
 		m89or101 = FALSE;
 		bgt911 = TRUE;
-		gtp_change_x2y = TRUE;
+		gtp_change_x2y = FALSE;
 		gtp_x_reverse = FALSE;
-		gtp_y_reverse = TRUE;
+		gtp_y_reverse = FALSE;
 	} else if (val == 9110) {
 		m89or101 = FALSE;
 		bgt9110 = TRUE;
-		gtp_change_x2y = TRUE;
-		gtp_x_reverse = TRUE;
+		gtp_change_x2y = FALSE;
+		gtp_x_reverse = FALSE;
 		gtp_y_reverse = FALSE;
 	} else if (val == 9111) {
 		m89or101 = FALSE;
@@ -2804,7 +2804,7 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
     
     ts->irq_flags = ts->int_trigger_type ? IRQF_TRIGGER_FALLING : IRQF_TRIGGER_RISING;
     // Create proc file system
-	gt91xx_config_proc = proc_create(GT91XX_CONFIG_PROC_FILE, 0664, NULL, &config_proc_ops);
+	/*gt91xx_config_proc = proc_create(GT91XX_CONFIG_PROC_FILE, 0664, NULL, &config_proc_ops);
     if (gt91xx_config_proc == NULL)
     {
         GTP_ERROR("create_proc_entry %s failed\n", GT91XX_CONFIG_PROC_FILE);
@@ -2812,7 +2812,7 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
     else
     {
         GTP_INFO("create proc entry %s success", GT91XX_CONFIG_PROC_FILE);
-    }
+    }*/
     
 #if GTP_AUTO_UPDATE
     ret = gup_init_update_proc(ts);
@@ -2859,7 +2859,7 @@ static int goodix_ts_probe(struct i2c_client *client, const struct i2c_device_id
 
 probe_init_error:
     printk("   <%s>_%d  prob error !!!!!!!!!!!!!!!\n", __func__, __LINE__);    
-    GTP_GPIO_FREE(ts->rst_pin);
+    //GTP_GPIO_FREE(ts->rst_pin);
     GTP_GPIO_FREE(ts->irq_pin);
 probe_init_error_requireio:
     tp_unregister_fb(&ts->tp); 

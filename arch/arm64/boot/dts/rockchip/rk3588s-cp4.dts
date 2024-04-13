@@ -456,16 +456,16 @@
 };
 
 &mipi_dcphy0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dsi0 {
-	status = "disabled";
+	status = "okay";
 	dsi0_panel: panel@0 {
 		status = "okay";
 		compatible = "simple-panel-dsi";
 		reg = <0>;
-		backlight = <&backlight>;
+		backlight = <&gp7101>;
 		reset-delay-ms = <60>;
 		enable-delay-ms = <60>;
 		prepare-delay-ms = <60>;
@@ -476,51 +476,199 @@
 		dsi,format = <MIPI_DSI_FMT_RGB888>;
 		dsi,lanes  = <2>;
 		panel-init-sequence = [
-			23 00 02 7A C1
-			23 00 02 20 20
-			23 00 02 21 E0
-			23 00 02 22 13
-            23 00 02 23 08
-            23 00 02 24 04
-            23 00 02 25 08
-            23 00 02 26 00
-            23 00 02 27 08
-            23 00 02 28 04
-            23 00 02 29 08
-            23 00 02 34 80
-            23 00 02 86 29
-            23 00 02 B5 A0
-            23 00 02 5C FF
-            23 00 02 2A 01
-            23 00 02 56 92
-            23 00 02 6B 71
-            23 00 02 69 15
-            23 00 02 10 40
-            23 00 02 11 88
-            23 00 02 B6 20
-            23 00 02 51 20
-            23 00 02 09 10
+			23 00 02 e0 00
+			23 00 02 e1 93
+			23 00 02 e2 65
+			23 00 02 e3 f8
+			23 00 02 80 01
+			23 00 02 e0 01
+			23 00 02 00 00
+			23 00 02 01 65
+			23 00 02 03 00
+			23 00 02 04 65
+			23 00 02 0c 74
+			23 00 02 17 00
+			23 00 02 18 b7
+			23 00 02 19 00
+			23 00 02 1a 00
+			23 00 02 1b b7
+			23 00 02 1c 00
+			23 00 02 24 fe
+			23 00 02 37 19
+			23 00 02 38 05
+			23 00 02 39 00
+			23 00 02 3a 01
+			23 00 02 3b 01
+			23 00 02 3c 70
+			23 00 02 3d ff
+			23 00 02 3e ff
+			23 00 02 3f ff
+			23 00 02 40 06
+			23 00 02 41 a0
+			23 00 02 43 1e
+			23 00 02 44 0f
+			23 00 02 45 28
+			23 00 02 4b 04
+			23 00 02 55 02
+			23 00 02 56 01
+			23 00 02 57 a9
+			23 00 02 58 0a
+			23 00 02 59 0a
+			23 00 02 5a 37
+			23 00 02 5b 19
+			23 00 02 5d 78
+			23 00 02 5e 63
+			23 00 02 5f 54
+			23 00 02 60 49
+			23 00 02 61 45
+			23 00 02 62 38
+			23 00 02 63 3d
+			23 00 02 64 28
+			23 00 02 65 43
+			23 00 02 66 41
+			23 00 02 67 43
+			23 00 02 68 62
+			23 00 02 69 50
+			23 00 02 6a 57
+			23 00 02 6b 49
+			23 00 02 6c 44
+			23 00 02 6d 37
+			23 00 02 6e 23
+			23 00 02 6f 10
+			23 00 02 70 78
+			23 00 02 71 63
+			23 00 02 72 54
+			23 00 02 73 49
+			23 00 02 74 45
+			23 00 02 75 38
+			23 00 02 76 3d
+			23 00 02 77 28
+			23 00 02 78 43
+			23 00 02 79 41
+			23 00 02 7a 43
+			23 00 02 7b 62
+			23 00 02 7c 50
+			23 00 02 7d 57
+			23 00 02 7e 49
+			23 00 02 7f 44
+			23 00 02 80 37
+			23 00 02 81 23
+			23 00 02 82 10
+			23 00 02 e0 02
+			23 00 02 00 47
+			23 00 02 01 47
+			23 00 02 02 45
+			23 00 02 03 45
+			23 00 02 04 4b
+			23 00 02 05 4b
+			23 00 02 06 49
+			23 00 02 07 49
+			23 00 02 08 41
+			23 00 02 09 1f
+			23 00 02 0a 1f
+			23 00 02 0b 1f
+			23 00 02 0c 1f
+			23 00 02 0d 1f
+			23 00 02 0e 1f
+			23 00 02 0f 5f
+			23 00 02 10 5f
+			23 00 02 11 57
+			23 00 02 12 77
+			23 00 02 13 35
+			23 00 02 14 1f
+			23 00 02 15 1f
+			23 00 02 16 46
+			23 00 02 17 46
+			23 00 02 18 44
+			23 00 02 19 44
+			23 00 02 1a 4a
+			23 00 02 1b 4a
+			23 00 02 1c 48
+			23 00 02 1d 48
+			23 00 02 1e 40
+			23 00 02 1f 1f
+			23 00 02 20 1f
+			23 00 02 21 1f
+			23 00 02 22 1f
+			23 00 02 23 1f
+			23 00 02 24 1f
+			23 00 02 25 5f
+			23 00 02 26 5f
+			23 00 02 27 57
+			23 00 02 28 77
+			23 00 02 29 35
+			23 00 02 2a 1f
+			23 00 02 2b 1f
+			23 00 02 58 40
+			23 00 02 59 00
+			23 00 02 5a 00
+			23 00 02 5b 10
+			23 00 02 5c 06
+			23 00 02 5d 40
+			23 00 02 5e 01
+			23 00 02 5f 02
+			23 00 02 60 30
+			23 00 02 61 01
+			23 00 02 62 02
+			23 00 02 63 03
+			23 00 02 64 6b
+			23 00 02 65 05
+			23 00 02 66 0c
+			23 00 02 67 73
+			23 00 02 68 09
+			23 00 02 69 03
+			23 00 02 6a 56
+			23 00 02 6b 08
+			23 00 02 6c 00
+			23 00 02 6d 04
+			23 00 02 6e 04
+			23 00 02 6f 88
+			23 00 02 70 00
+			23 00 02 71 00
+			23 00 02 72 06
+			23 00 02 73 7b
+			23 00 02 74 00
+			23 00 02 75 f8
+			23 00 02 76 00
+			23 00 02 77 d5
+			23 00 02 78 2e
+			23 00 02 79 12
+			23 00 02 7a 03
+			23 00 02 7b 00
+			23 00 02 7c 00
+			23 00 02 7d 03
+			23 00 02 7e 7b
+			23 00 02 e0 04
+			23 00 02 00 0e
+			23 00 02 02 b3
+			23 00 02 09 60
+			23 00 02 0e 2a
+			23 00 02 36 59
+			23 00 02 e0 00
+
 			05 78 01 11
-			05 1E 01 29
+			05 14 01 29
+			
+			23 00 02 35 00
 		];
 
 		panel-exit-sequence = [
-			05 00 01 28
-			05 00 01 10
+			05 14 01 28
+			05 78 01 10
 		];
 
 		disp_timings0: display-timings {
 			native-mode = <&dsi0_timing0>;
 			dsi0_timing0: timing0 {
-				clock-frequency = <25000000>;
+				clock-frequency = <70800000>;
 				hactive = <800>;
-				vactive = <480>;
-				hfront-porch = <8>;
-				hsync-len = <4>;
-				hback-porch = <8>;
-				vfront-porch = <8>;
+				vactive = <1280>;
+				hfront-porch = <40>;
+				hsync-len = <20>;
+				hback-porch = <20>;
+				vfront-porch = <30>;
 				vsync-len = <4>;
-				vback-porch = <8>;
+				vback-porch = <28>;
 				hsync-active = <0>;
 				vsync-active = <0>;
 				de-active = <0>;
@@ -556,7 +704,7 @@
 };
 
 &dsi0_in_vp3 {
-	status = "disabled";
+	status = "okay";
 };
 
 &route_dsi0 {
@@ -898,17 +1046,17 @@
 
 &backlight {
 	pwms = <&pwm13 0 25000 0>;
-	status = "okay";
+	status = "disabled";
 };
 
 &dp0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&dp0m0_pins>;
 	pinctrl-names = "default";
 };
 
 &dp0_in_vp2 {
-	status = "okay";
+	status = "disabled";
 };
 
 &spdif_tx1 {
@@ -1020,20 +1168,25 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c4m3_xfer>;
+	clock-frequency = <400000>;
+	gp7101: gp7101@58 {
+		status = "okay";
+		compatible = "gp7101";
+		reg = <0x58>;
+		default-brightness-level = <100>;
+	};
 	
-	tinker_mcu: tinker_mcu@45 {
-		compatible = "tinker_mcu";
-		reg = <0x45>;
-	};
+	gt9xx@5d{
+		compatible = "goodix,gt9xx";
+		reg = <0x5d>;
+		status = "okay";
+		touch-gpio = <&gpio4 RK_PA7 IRQ_TYPE_LEVEL_LOW>;
+		max-x = <800>;
+		max-y = <1280>;
+		tp-size = <9110>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touch_int>;
 
-	tinker_mcu_ili9881c: tinker_mcu_ili9881c@36 {
-		compatible = "tinker_mcu_ili9881c";
-		reg = <0x36>;
-	};
-
-	tinker_ft5406: tinker_ft5406@38 {
-		compatible = "tinker_ft5406";
-		reg = <0x38>;
 	};
 };
 
@@ -1480,6 +1633,12 @@
 
 		wifi_poweren_gpio: wifi-poweren-gpio {
 			rockchip,pins = <1 RK_PD3 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+	
+	touch {
+		touch_int: touch-int {
+			rockchip,pins = <4 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 };
