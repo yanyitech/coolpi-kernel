@@ -526,7 +526,7 @@
 };
 
 &dsi0 {
-	status = "okay";
+	status = "disabled";
 	dsi0_panel: panel@0 {
 		status = "okay";
 		compatible = "simple-panel-dsi";
