@@ -1,0 +1,35 @@
+/************************************************************************************************
+DESCRIPTION:
+  GobiNet driver for USB rmnet of FIBOCOM wireless cellular modules.
+*************************************************************************************************/
+
+=================================================================================================
+
+                            Version Record
+  This section contains version comments describing changes made to the driver.
+  Notice that  changes are listed in reverse chronological order.
+
+
+Version                                     When         Modification
+----------------------------------------    --------     ------------------------------------------------------------
+Fibocom_Linux_GobiNet_Driver_V2.01.00.05    21.11.05     1.Fixed the compilation failure on linux2.x kernel
+                                                         2.In 22 mode, fibocom-dial succeeds in dialing but cannot ping through the network
+
+Fibocom_Linux_GobiNet_Driver_V2.01.00.04    21.08.28     Add vid/pid:05c6/9025
+
+Fibocom_Linux_GobiNet_Driver_V2.01.00.03    21.08.04     Add the value of the qmap_version
+
+Fibocom_Linux_GobiNet_Driver_V2.01.00.02    21.07.08     Support NL668
+
+Fibocom_Linux_GobiNet_Driver_V2.01.00.01    21.06.02     Support x24
+
+Fibocom_Linux_GobiNet_Driver_V2.01.00.00    21.05.07     QMap is enabled by default
+
+Fibocom_Linux_GobiNet_Driver_V2.00.00.02    21.04.13     There is a problem with the secondary dialing rate of this version
+
+Fibocom_Linux_GobiNet_Driver_V2.00.00.01    21.03.16     Delete sensitive information
+
+Fibocom_Linux_GobiNet_Driver_V2.00.00.00    21.02.08     Drive structure optimization and drive performance optimization are great
+
+Fibocom_Linux_GobiNet_Driver_V1.00.00.09    20.11.25     Multiway dialing optimization
+=================================================================================================

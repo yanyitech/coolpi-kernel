@@ -44,29 +44,24 @@ static int modem_poweron_off(int on_off)
 	if (pdata) {
 		if (on_off) {
 			LOG("%s: 4g modem power up.\n", __func__);
-			if (pdata->vbat_gpio) {
-				gpiod_direction_output(pdata->vbat_gpio, 1);
-				msleep(2000);
-			}
-			if (pdata->power_gpio) {
-				gpiod_direction_output(pdata->power_gpio, 0);
-				msleep(50);
+			if (pdata->power_gpio)
 				gpiod_direction_output(pdata->power_gpio, 1);
-				msleep(400);
-				gpiod_direction_output(pdata->power_gpio, 0);
+			if (pdata->vbat_gpio)
+				gpiod_direction_output(pdata->vbat_gpio, 1);
+			if (pdata->reset_gpio){
+				gpiod_direction_output(pdata->reset_gpio, 0);
+				msleep(100);
+				gpiod_direction_output(pdata->reset_gpio, 1);
 			}
+
 		} else {
 			LOG("%s: 4g modem power down.\n", __func__);
-			if (pdata->power_gpio) {
-				gpiod_direction_output(pdata->power_gpio, 0);
-				msleep(100);
-				gpiod_direction_output(pdata->power_gpio, 1);
-				msleep(1000);
-				gpiod_direction_output(pdata->power_gpio, 0);
-				msleep(400);
-			}
 			if (pdata->vbat_gpio)
 				gpiod_direction_output(pdata->vbat_gpio, 0);
+			if (pdata->power_gpio)
+				gpiod_direction_output(pdata->power_gpio, 0);
+			if (pdata->reset_gpio)
+				gpiod_direction_output(pdata->reset_gpio, 0);
 		}
 	}
 	return 0;
@@ -117,22 +112,22 @@ static int modem_platdata_parse_dt(struct device *dev,
 		return -ENODEV;
 	memset(data, 0, sizeof(*data));
 	LOG("%s: LTE modem power controlled by gpio.\n", __func__);
-	data->vbat_gpio = devm_gpiod_get_optional(dev, "4G,vbat",
-						  GPIOD_OUT_HIGH);
+	data->vbat_gpio = devm_gpiod_get_optional(dev, "4G,disable",
+						  0);
 	if (IS_ERR(data->vbat_gpio)) {
 		ret = PTR_ERR(data->vbat_gpio);
-		dev_err(dev, "failed to request 4G,vbat GPIO: %d\n", ret);
+		dev_err(dev, "failed to request 4G,disable GPIO: %d\n", ret);
 		return ret;
 	}
 	data->power_gpio = devm_gpiod_get_optional(dev, "4G,power",
-						   GPIOD_OUT_HIGH);
+						   0);
 	if (IS_ERR(data->power_gpio)) {
 		ret = PTR_ERR(data->power_gpio);
 		dev_err(dev, "failed to request 4G,power GPIO: %d\n", ret);
 		return ret;
 	}
 	data->reset_gpio = devm_gpiod_get_optional(dev, "4G,reset",
-						   GPIOD_OUT_LOW);
+						   0);
 	if (IS_ERR(data->reset_gpio)) {
 		ret = PTR_ERR(data->reset_gpio);
 		dev_err(dev, "failed to request 4G,reset GPIO: %d\n", ret);
@@ -164,8 +159,6 @@ static int lte_probe(struct platform_device *pdev)
 	gpdata = pdata;
 	pdata->dev = &pdev->dev;
 
-	if (pdata->reset_gpio)
-		gpiod_direction_output(pdata->reset_gpio, 0);
 	kthread = kthread_run(modem_power_on_thread, NULL,
 			      "modem_power_on_thread");
 	if (IS_ERR(kthread)) {
@@ -194,9 +187,6 @@ static int lte_remove(struct platform_device *pdev)
 	struct lte_data *pdata = gpdata;
 
 	if (pdata->power_gpio) {
-		msleep(100);
-		gpiod_direction_output(pdata->power_gpio, 1);
-		msleep(750);
 		gpiod_direction_output(pdata->power_gpio, 0);
 	}
 	if (pdata->vbat_gpio)

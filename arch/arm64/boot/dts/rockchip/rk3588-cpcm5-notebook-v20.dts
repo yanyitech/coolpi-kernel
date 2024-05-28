@@ -446,6 +446,16 @@
 		#size-cells = <0>;
 		status = "disabled";
 	};
+	
+	rk_modem: rk-modem {
+		compatible="4g-modem-platdata";
+		pinctrl-names = "default";
+		pinctrl-0 = <&lte_disable &lte_power_en &lte_reset>;
+		4G,disable-gpio  = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
+		4G,reset-gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
+		4G,power-gpio = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 &cpu_l0 {
@@ -751,11 +761,12 @@
 };
 
 &usbhost3_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &usbhost_dwc3_0 {
-	status = "disabled";
+	dr_mode = "host";
+	status = "okay";
 };
 
 &usbdp_phy1 {
@@ -1313,11 +1324,15 @@
 	rockchip,pcie30-phymode = <PHY_MODE_PCIE_AGGREGATION>;
 	status = "okay";
 };
-
+//YT6801S
+&combphy0_ps {
+	status = "disabled";
+};
+//WIFI
 &combphy1_ps {
     status = "okay";
 };
-
+//5G
 &combphy2_psu {
 	status = "okay";
 };
@@ -1490,6 +1505,20 @@
 		};
 		tp_rst: tp-rst {
 			rockchip,pins = <1 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+	
+	rk-modem {
+		lte_disable: lte-disable {
+			rockchip,pins = <3 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		lte_power_en: lte-power-en {
+			rockchip,pins = <2 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		lte_reset: lte-reset {
+			rockchip,pins = <3 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 };

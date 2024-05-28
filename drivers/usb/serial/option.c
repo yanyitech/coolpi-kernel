@@ -91,6 +91,7 @@ static void option_instat_callback(struct urb *urb);
 #define QUANTA_PRODUCT_GLE			0xEA06
 
 #define NOVATELWIRELESS_VENDOR_ID		0x1410
+#define FIBOCOM_VENDOR_ID 			0x2CB7
 
 /* YISO PRODUCTS */
 
@@ -254,6 +255,7 @@ static void option_instat_callback(struct urb *urb);
 #define QUECTEL_PRODUCT_EP06			0x0306
 #define QUECTEL_PRODUCT_EM12			0x0512
 #define QUECTEL_PRODUCT_RM500Q			0x0800
+#define QUECTEL_PRODUCT_RM500U_CN		0x0900
 #define QUECTEL_PRODUCT_EC200S_CN		0x6002
 #define QUECTEL_PRODUCT_EC200T			0x6026
 
@@ -1135,6 +1137,7 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, QUECTEL_PRODUCT_EM12, 0xff, 0, 0) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, 0x0620, 0xff, 0xff, 0x30) },	/* EM160R-GL */
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, 0x0620, 0xff, 0, 0) },
+	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, QUECTEL_PRODUCT_RM500U_CN, 0xff, 0xff, 0x30) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, QUECTEL_PRODUCT_RM500Q, 0xff, 0xff, 0x30) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, QUECTEL_PRODUCT_RM500Q, 0xff, 0, 0) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(QUECTEL_VENDOR_ID, QUECTEL_PRODUCT_RM500Q, 0xff, 0xff, 0x10),
@@ -2113,6 +2116,7 @@ static const struct usb_device_id option_ids[] = {
 	  .driver_info = RSVD(4) | RSVD(5) | RSVD(6) },
 	{ USB_DEVICE(0x2cb7, 0x0104),						/* Fibocom NL678 series */
 	  .driver_info = RSVD(4) | RSVD(5) },
+	{ USB_DEVICE(0x2cb7, 0x0104) },						/* Fibocom FM160-NA series */
 	{ USB_DEVICE_INTERFACE_CLASS(0x2cb7, 0x0105, 0xff),			/* Fibocom NL678 series */
 	  .driver_info = RSVD(6) },
 	{ USB_DEVICE_AND_INTERFACE_INFO(0x2cb7, 0x010b, 0xff, 0xff, 0x30) },	/* Fibocom FG150 Diag */
@@ -2160,6 +2164,9 @@ static struct usb_serial_driver option_1port_device = {
 #ifdef CONFIG_PM
 	.suspend           = usb_wwan_suspend,
 	.resume            = usb_wwan_resume,
+	#if 1 //Added by Quectel
+	.reset_resume = usb_wwan_resume,
+	#endif
 #endif
 };
 
@@ -2183,6 +2190,33 @@ static int option_probe(struct usb_serial *serial,
 	struct usb_interface_descriptor *iface_desc =
 				&serial->interface->cur_altsetting->desc;
 	unsigned long device_flags = id->driver_info;
+	
+	if(serial->dev->descriptor.idVendor == FIBOCOM_VENDOR_ID &&	(((serial->dev->descriptor.idProduct == cpu_to_le16(0x0104) || serial->dev->descriptor.idProduct == cpu_to_le16(0x0105)) && serial->interface->cur_altsetting->desc.bInterfaceNumber >= 4)|| ((serial->dev->descriptor.idProduct == cpu_to_le16(0x0109) || serial->dev->descriptor.idProduct == cpu_to_le16(0x010A)) && serial->interface->cur_altsetting->desc.bInterfaceNumber >= 2)))	
+	{
+		printk(KERN_INFO "Discovery the interface for FIBOCOM .");
+		return -ENODEV;
+	}
+	if(((serial->dev->descriptor.idProduct == cpu_to_le16(0x0110) || serial->dev->descriptor.idProduct == cpu_to_le16(0x0111)) && serial->interface->cur_altsetting->desc.bInterfaceNumber < 2))		
+	{
+		printk(KERN_INFO "Discovery the interface for FIBOCOM .");
+		return -ENODEV;
+	}
+	#if 1 //Added by Quectel
+	if (serial->dev->descriptor.idVendor == cpu_to_le16(0x2C7C)) {
+		
+		__u16 idProduct = le16_to_cpu(serial->dev->descriptor.idProduct);
+		struct usb_interface_descriptor *intf = &serial->interface->cur_altsetting->desc;
+		if (intf->bInterfaceClass != 0xFF || intf->bInterfaceSubClass == 0x42) {
+		//ECM, RNDIS, NCM, MBIM, ACM, UAC, ADB
+		return -ENODEV;
+		}
+		if ((idProduct&0xF000) == 0x0000) {
+		//MDM interface 4 is QMI
+		if (intf->bInterfaceNumber == 4 && intf->bNumEndpoints == 3 && intf->bInterfaceSubClass == 0xFF && intf->bInterfaceProtocol == 0xFF)
+		return -ENODEV;
+	}
+}
+#endif			
 
 	/* Never bind to the CD-Rom emulation interface	*/
 	if (iface_desc->bInterfaceClass == USB_CLASS_MASS_STORAGE)
