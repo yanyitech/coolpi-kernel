@@ -1,0 +1,4 @@
+config RTL8852BE
+	tristate "Realtek 8852B PCIE WiFi"
+	help
+	  Help message of RTL8852BE

@@ -32,8 +32,12 @@ menuconfig BCMDHD
 	bool "Broadcom Wireless Device Driver Support"
 	default y
 
+menuconfig WLAN_RTL
+	bool "Realtek Wireless Device Driver Support"
+	default y
+
 if BCMDHD
 source "drivers/net/wireless/rockchip_wlan/rkwifi/Kconfig"
 endif
-
+source "drivers/net/wireless/rockchip_wlan/rtw8852be/Kconfig"
 endif # WL_ROCKCHIP
