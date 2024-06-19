@@ -16,7 +16,7 @@
 #include <dt-bindings/display/rockchip_vop.h>
 #include <dt-bindings/sensor-dev.h>
 #include "rk3588-rk806-single.dtsi"
-//#include "rk3588-cpu-swap.dtsi"
+#include "rk3588-cpu-swap.dtsi"
 
 / {
 	model = "RK3588 CoolPi CM5 NoteBook Board";
@@ -446,6 +446,16 @@
 		#size-cells = <0>;
 		status = "disabled";
 	};
+	
+	rk_modem: rk-modem {
+		compatible="4g-modem-platdata";
+		pinctrl-names = "default";
+		pinctrl-0 = <&lte_disable &lte_power_en &lte_reset>;
+		4G,disable-gpio  = <&gpio3 RK_PC5 GPIO_ACTIVE_HIGH>;
+		4G,reset-gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
+		4G,power-gpio = <&gpio2 RK_PC5 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
 };
 
 &cpu_l0 {
@@ -751,11 +761,12 @@
 };
 
 &usbhost3_0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &usbhost_dwc3_0 {
-	status = "disabled";
+	dr_mode = "host";
+	status = "okay";
 };
 
 &usbdp_phy1 {
@@ -1282,10 +1293,10 @@
 		#sound-dai-cells = <0>;
 		compatible = "everest,es8316";
 		reg = <0x10>;
-		clocks = <&cru I2S0_8CH_MCLKOUT>;
+		clocks = <&mclkout_i2s0>;
 		clock-names = "mclk";
 		spk-con-gpio = <&gpio1 RK_PA6 GPIO_ACTIVE_HIGH>;
-		assigned-clocks = <&cru I2S0_8CH_MCLKOUT>;
+		assigned-clocks = <&mclkout_i2s0>;
 		assigned-clock-rates = <12288000>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&i2s0_mclk>;
@@ -1494,6 +1505,20 @@
 		};
 		tp_rst: tp-rst {
 			rockchip,pins = <1 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+	
+	rk-modem {
+		lte_disable: lte-disable {
+			rockchip,pins = <3 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		lte_power_en: lte-power-en {
+			rockchip,pins = <2 RK_PC5 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		lte_reset: lte-reset {
+			rockchip,pins = <3 RK_PC6 RK_FUNC_GPIO &pcfg_pull_up>;
 		};
 	};
 };
