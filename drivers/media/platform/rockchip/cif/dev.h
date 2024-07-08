@@ -930,9 +930,9 @@ struct rkcif_device {
 extern struct platform_driver rkcif_plat_drv;
 void rkcif_set_fps(struct rkcif_stream *stream, struct rkcif_fps *fps);
 int rkcif_do_start_stream(struct rkcif_stream *stream,
-				enum rkcif_stream_mode mode);
+				unsigned int mode);
 void rkcif_do_stop_stream(struct rkcif_stream *stream,
-				enum rkcif_stream_mode mode);
+				unsigned int mode);
 void rkcif_irq_handle_scale(struct rkcif_device *cif_dev,
 				  unsigned int intstat_glb);
 void rkcif_buf_queue(struct vb2_buffer *vb);
