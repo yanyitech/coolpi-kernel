@@ -15,6 +15,8 @@
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
 #include <linux/regmap.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -23,6 +25,8 @@
 #include <sound/jack.h>
 #include "es8316.h"
 
+static struct snd_soc_component *es8316_component;
+#define INVALID_GPIO -1
 /* In slave mode at single speed, the codec is documented as accepting 5
  * MCLK/LRCK ratios, but we also add ratio 400, which is commonly used on
  * Intel Cherry Trail platforms (19.2MHz MCLK, 48kHz LRCK).
@@ -43,6 +47,10 @@ struct es8316_priv {
 	unsigned int allowed_rates[NR_SUPPORTED_MCLK_LRCK_RATIOS];
 	struct snd_pcm_hw_constraint_list sysclk_constraints;
 	bool jd_inverted;
+	int spk_ctl_gpio;
+	bool spk_active_level;
+	bool hp_inserted;
+	bool muted;
 };
 
 /*
@@ -73,8 +81,7 @@ static const SNDRV_CTL_TLVD_DECLARE_DB_RANGE(adc_pga_gain_tlv,
 );
 
 static const SNDRV_CTL_TLVD_DECLARE_DB_RANGE(hpout_vol_tlv,
-	0, 0, TLV_DB_SCALE_ITEM(-4800, 0, 0),
-	1, 3, TLV_DB_SCALE_ITEM(-2400, 1200, 0),
+	0, 3, TLV_DB_SCALE_ITEM(-4800, 1200, 0),
 );
 
 static const char * const ng_type_txt[] =
@@ -360,6 +367,87 @@ static const struct snd_soc_dapm_route es8316_dapm_routes[] = {
 	{"HPOR", NULL, "Headphone Out"},
 };
 
+static void es8316_enable_spk(struct es8316_priv *es8316, bool enable)
+{
+	bool level;
+
+	if(es8316->spk_ctl_gpio > 0) {
+		level = enable ? es8316->spk_active_level : !es8316->spk_active_level;
+		gpio_set_value(es8316->spk_ctl_gpio, level);
+	}
+}
+
+static int es8316_reset(struct snd_soc_component *component)
+{
+	snd_soc_component_write(component, ES8316_RESET, 0x3F);
+	usleep_range(5000, 5500);
+	return snd_soc_component_write(component, ES8316_RESET, 0x03);
+}
+
+static int es8316_init_regs(struct snd_soc_component *component)
+{
+	snd_soc_component_write(component, ES8316_RESET, 0x3f);
+	usleep_range(5000, 5500);
+	snd_soc_component_write(component, ES8316_RESET, 0x00);
+	snd_soc_component_write(component, ES8316_SYS_VMIDSEL, 0xFF);
+	msleep(30);
+	snd_soc_component_write(component, ES8316_CLKMGR_CLKSEL, 0x08);
+	snd_soc_component_write(component, ES8316_CLKMGR_ADCOSR, 0x20);
+	snd_soc_component_write(component, ES8316_CLKMGR_ADCDIV1, 0x11);
+	snd_soc_component_write(component, ES8316_CLKMGR_ADCDIV2, 0x00);
+	snd_soc_component_write(component, ES8316_CLKMGR_DACDIV1, 0x11);
+	snd_soc_component_write(component, ES8316_CLKMGR_DACDIV2, 0x00);
+	snd_soc_component_write(component, ES8316_CLKMGR_CPDIV, 0x00);
+	snd_soc_component_write(component, ES8316_SERDATA1, 0x04);
+	snd_soc_component_write(component, ES8316_CLKMGR_CLKSW, 0x7F);
+	snd_soc_component_write(component, ES8316_CAL_TYPE, 0x0F);
+	snd_soc_component_write(component, ES8316_CAL_HPLIV, 0x90);
+	snd_soc_component_write(component, ES8316_CAL_HPRIV, 0x90);
+	snd_soc_component_write(component, ES8316_ADC_VOLUME, 0x00);
+	snd_soc_component_write(component, ES8316_ADC_PDN_LINSEL, 0x20);
+	snd_soc_component_write(component, ES8316_ADC_D2SEPGA, 0x00);
+	snd_soc_component_write(component, ES8316_ADC_DMIC, 0x08);
+	snd_soc_component_write(component, ES8316_DAC_SET2, 0x20);
+	snd_soc_component_write(component, ES8316_DAC_SET3, 0x00);
+	snd_soc_component_write(component, ES8316_DAC_VOLL, 0x00);
+	snd_soc_component_write(component, ES8316_DAC_VOLR, 0x00);
+	snd_soc_component_write(component, ES8316_SERDATA_ADC, 0x00);
+	snd_soc_component_write(component, ES8316_SERDATA_DAC, 0x00);
+	snd_soc_component_write(component, ES8316_SYS_VMIDLOW, 0x11);
+	snd_soc_component_write(component, ES8316_SYS_VSEL, 0xFC);
+	snd_soc_component_write(component, ES8316_SYS_REF, 0x28);
+	snd_soc_component_write(component, ES8316_SYS_LP1, 0x04);
+	snd_soc_component_write(component, ES8316_SYS_LP2, 0x0C);
+	snd_soc_component_write(component, ES8316_DAC_PDN, 0x11);
+	snd_soc_component_write(component, ES8316_HPMIX_SEL, 0x00);
+	snd_soc_component_write(component, ES8316_HPMIX_SWITCH, 0x88);
+	snd_soc_component_write(component, ES8316_HPMIX_PDN, 0x00);
+	snd_soc_component_write(component, ES8316_HPMIX_VOL, 0xBB);
+	snd_soc_component_write(component, ES8316_CPHP_PDN2, 0x10);
+	snd_soc_component_write(component, ES8316_CPHP_LDOCTL, 0x30);
+	snd_soc_component_write(component, ES8316_CPHP_PDN1, 0x02);
+	snd_soc_component_write(component, ES8316_CPHP_ICAL_VOL, 0x00);
+	snd_soc_component_write(component, ES8316_GPIO_SEL, 0x00);
+	snd_soc_component_write(component, ES8316_GPIO_DEBOUNCE, 0x02);
+	snd_soc_component_write(component, ES8316_TESTMODE, 0xA0);
+	snd_soc_component_write(component, ES8316_TEST1, 0x00);
+	snd_soc_component_write(component, ES8316_TEST2, 0x00);
+	snd_soc_component_write(component, ES8316_SYS_PDN, 0x00);
+	snd_soc_component_write(component, ES8316_RESET, 0xC0);
+	msleep(50);
+	snd_soc_component_write(component, ES8316_ADC_PGAGAIN, 0xA0);
+	snd_soc_component_write(component, ES8316_ADC_D2SEPGA, 0x01);
+	/* adc ds mode, HPF enable */
+	snd_soc_component_write(component, ES8316_ADC_DMIC, 0x08);
+	snd_soc_component_write(component, ES8316_ADC_ALC1, 0xcd);
+	snd_soc_component_write(component, ES8316_ADC_ALC2, 0x08);
+	snd_soc_component_write(component, ES8316_ADC_ALC3, 0xa0);
+	snd_soc_component_write(component, ES8316_ADC_ALC4, 0x05);
+	snd_soc_component_write(component, ES8316_ADC_ALC5, 0x06);
+	snd_soc_component_write(component, ES8316_ADC_ALC_NG, 0x61);
+	return 0;
+}
+
 static int es8316_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 				 int clk_id, unsigned int freq, int dir)
 {
@@ -519,8 +607,20 @@ static int es8316_pcm_hw_params(struct snd_pcm_substream *substream,
 
 static int es8316_mute(struct snd_soc_dai *dai, int mute, int direction)
 {
-	snd_soc_component_update_bits(dai->component, ES8316_DAC_SET1, 0x20,
-			    mute ? 0x20 : 0);
+	struct snd_soc_component *component = dai->component;
+	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
+
+	es8316->muted = mute;
+	if (mute) {
+		es8316_enable_spk(es8316, false);
+		msleep(100);
+		snd_soc_component_write(component, ES8316_DAC_SET1, 0x20);
+	} else {
+		snd_soc_component_write(component, ES8316_DAC_SET1, 0x00);
+		msleep(130);
+		if (!es8316->hp_inserted)
+			es8316_enable_spk(es8316, true);
+	}
 	return 0;
 }
 
@@ -656,6 +756,39 @@ out:
 	return IRQ_HANDLED;
 }
 
+/*
+ * Call from rk_headset_irq_hook_adc.c
+ *
+ * Enable micbias for HOOK detection and disable external Amplifier
+ * when jack insertion.
+ */
+int es8316_headset_detect(int jack_insert)
+{
+	struct es8316_priv *es8316;
+
+	if (!es8316_component)
+		return -1;
+
+	es8316 = snd_soc_component_get_drvdata(es8316_component);
+
+	es8316->hp_inserted = jack_insert;
+
+	/*Switching MIC channels*/
+	if (jack_insert) {
+		snd_soc_component_write(es8316_component,
+				     ES8316_ADC_PDN_LINSEL, 0x30);
+		es8316_enable_spk(es8316, false);
+	}
+	else{
+		snd_soc_component_write(es8316_component,
+				     ES8316_ADC_PDN_LINSEL, 0x20);
+		es8316_enable_spk(es8316, true);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(es8316_headset_detect);
+
 static void es8316_enable_jack_detect(struct snd_soc_component *component,
 				      struct snd_soc_jack *jack)
 {
@@ -726,9 +859,8 @@ static int es8316_probe(struct snd_soc_component *component)
 {
 	struct es8316_priv *es8316 = snd_soc_component_get_drvdata(component);
 	int ret;
-
 	es8316->component = component;
-
+	es8316_component = component;
 	es8316->mclk = devm_clk_get_optional(component->dev, "mclk");
 	if (IS_ERR(es8316->mclk)) {
 		dev_err(component->dev, "unable to get mclk\n");
@@ -743,24 +875,33 @@ static int es8316_probe(struct snd_soc_component *component)
 		return ret;
 	}
 
-	/* Reset codec and enable current state machine */
-	snd_soc_component_write(component, ES8316_RESET, 0x3f);
-	usleep_range(5000, 5500);
-	snd_soc_component_write(component, ES8316_RESET, ES8316_RESET_CSM_ON);
-	msleep(30);
+	ret = snd_soc_component_read(component, ES8316_CLKMGR_ADCDIV2);
+	if (!ret) {
+		es8316_reset(component); /* UPDATED BY DAVID,15-3-5 */
+		ret = snd_soc_component_read(component, ES8316_CLKMGR_ADCDIV2);
+		if (!ret) {
+			es8316_init_regs(component);
+			snd_soc_component_write(component, ES8316_GPIO_SEL, 0x00);
+			/* max debance time, enable interrupt, low active */
+			snd_soc_component_write(component,
+				      ES8316_GPIO_DEBOUNCE, 0xf3);
 
-	/*
-	 * Documentation is unclear, but this value from the vendor driver is
-	 * needed otherwise audio output is silent.
-	 */
-	snd_soc_component_write(component, ES8316_SYS_VMIDSEL, 0xff);
-
-	/*
-	 * Documentation for this register is unclear and incomplete,
-	 * but here is a vendor-provided value that improves volume
-	 * and quality for Intel CHT platforms.
-	 */
-	snd_soc_component_write(component, ES8316_CLKMGR_ADCOSR, 0x32);
+			/* es8316_set_bias_level(codec, SND_SOC_BIAS_OFF); */
+			snd_soc_component_write(component, ES8316_CPHP_OUTEN, 0x00);
+			snd_soc_component_write(component, ES8316_DAC_PDN, 0x11);
+			snd_soc_component_write(component, ES8316_CPHP_LDOCTL, 0x03);
+			snd_soc_component_write(component, ES8316_CPHP_PDN2, 0x22);
+			snd_soc_component_write(component, ES8316_CPHP_PDN1, 0x06);
+			snd_soc_component_write(component, ES8316_HPMIX_SWITCH, 0x00);
+			snd_soc_component_write(component, ES8316_HPMIX_PDN, 0x33);
+			snd_soc_component_write(component, ES8316_HPMIX_VOL, 0x00);
+			snd_soc_component_write(component, ES8316_SYS_LP1, 0xFF);
+			snd_soc_component_write(component, ES8316_SYS_LP2, 0xFF);
+			snd_soc_component_write(component, ES8316_CLKMGR_CLKSW, 0xF3);
+			snd_soc_component_write(component,
+				      ES8316_ADC_PDN_LINSEL, 0x20);
+		}
+	}
 
 	return 0;
 }
@@ -832,7 +973,8 @@ static int es8316_i2c_probe(struct i2c_client *i2c_client)
 	struct device *dev = &i2c_client->dev;
 	struct es8316_priv *es8316;
 	int ret;
-
+	enum of_gpio_flags flags;
+	struct device_node *np = i2c_client->dev.of_node;
 	es8316 = devm_kzalloc(&i2c_client->dev, sizeof(struct es8316_priv),
 			      GFP_KERNEL);
 	if (es8316 == NULL)
@@ -855,6 +997,24 @@ static int es8316_i2c_probe(struct i2c_client *i2c_client)
 			dev_warn(dev, "Failed to get IRQ %d: %d\n", es8316->irq, ret);
 			es8316->irq = -ENXIO;
 		}
+	}
+	
+	es8316->spk_ctl_gpio = of_get_named_gpio_flags(np,
+						       "spk-con-gpio",
+						       0,
+						       &flags);
+	if (es8316->spk_ctl_gpio < 0) {
+		dev_info(&i2c_client->dev, "Can not read property spk_ctl_gpio\n");
+		es8316->spk_ctl_gpio = INVALID_GPIO;
+	} else {
+		es8316->spk_active_level = !(flags & OF_GPIO_ACTIVE_LOW);
+		ret = devm_gpio_request_one(&i2c_client->dev, es8316->spk_ctl_gpio,
+					    GPIOF_DIR_OUT, NULL);
+		if (ret) {
+			dev_err(&i2c_client->dev, "Failed to request spk_ctl_gpio\n");
+			return ret;
+		}
+		es8316_enable_spk(es8316, false);
 	}
 
 	return devm_snd_soc_register_component(&i2c_client->dev,
