@@ -1221,7 +1221,7 @@ rk628_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	return 0;
 }
 
-static int rk628_i2c_remove(struct i2c_client *client)
+static void rk628_i2c_remove(struct i2c_client *client)
 {
 	struct rk628 *rk628 = i2c_get_clientdata(client);
 	struct device *dev = &client->dev;
@@ -1234,8 +1234,6 @@ static int rk628_i2c_remove(struct i2c_client *client)
 	cancel_delayed_work_sync(&rk628->delay_work);
 	destroy_workqueue(rk628->monitor_wq);
 	pm_runtime_disable(dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
